@@ -19,7 +19,7 @@ classifiers = [
 ]
 dependencies = [
   "numpy>=1.24",
-  "pandas>=2.0",
+  "pandas>=2.1",
   "scipy>=1.10",
   "matplotlib>=3.8",
   "anndata>=0.10",
@@ -69,4 +69,10 @@ addopts = "-ra --strict-markers --mpl --mpl-baseline-path=tests/baseline -m 'not
 markers = [
   "realdata: case-study tests on downloaded public data (opt-in: pytest -m realdata)",
   "perf: performance-budget tests",
+]
+filterwarnings = [
+  # Upstream (anndata) use of pandas options deprecated in pandas 3; not tincture code.
+  "ignore:The 'mode.chained_assignment' option is deprecated",
+  "ignore:The 'future.infer_string' option is deprecated",
+  "ignore:Transforming to str index:UserWarning",
 ]

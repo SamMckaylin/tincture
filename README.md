@@ -24,7 +24,7 @@ Every plot ships with:
 
 Uncertainty is on by default. When a result is weak (a failed fit, no confident neighbour, a bend within noise), the figure says so.
 
-> **Status: Milestone 0 of 7.** The rendering core (PlotSpec, renderer, theme, journal export, captions) is in place. The question-first plots arrive milestone by milestone: see [`HANDOVER.md`](HANDOVER.md) §8 and the reports in [`docs/`](docs/).
+> **Status: Milestone 1 of 7.** Done so far: the rendering core (PlotSpec, renderer, theme, journal export, captions), the data model, and verified loaders for sci-Plex, PRISM and GDSC. The question-first plots arrive milestone by milestone: see [`HANDOVER.md`](HANDOVER.md) §8 and the reports in [`docs/`](docs/).
 
 ## Install
 
@@ -67,7 +67,23 @@ Output does not depend on your matplotlib style.
 
 ## Data
 
-Case studies run on real public datasets (sci-Plex, PRISM, GDSC, LINCS, NanoBRET, Davis and others). **No data is stored in this repository.** Loaders download into a git-ignored `data/` cache with checksums, because several sources (GDSC in particular) forbid redistribution. Provenance and verification notes are in [`docs/data_status.md`](docs/data_status.md).
+Case studies run on real public datasets. **No data is stored in this repository.** Loaders download into a git-ignored cache (`$TINCTURE_DATA`, or `data/raw/` in a checkout) and verify every file against a pinned checksum, because several sources (GDSC in particular) forbid redistribution.
+
+| Dataset | Loader | Returns |
+|---|---|---|
+| sci-Plex3 (GSE139944) | `tincture.io.sciplex.load_sciplex3()` | `PerturbationSet` of per-well pseudobulk counts (run `build_pseudobulk()` once; about 5 min) |
+| PRISM Repurposing 20Q2 secondary | `tincture.io.prism.load_prism_secondary(compounds=[...])` | `DoseResponseSet` (raw viability + published fits with quality flags) |
+| GDSC2 raw, release 8.5 | `tincture.io.gdsc.load_gdsc2_plates(max_plates=...)` | `PlateTable` (1536-well) |
+
+```python
+from tincture.io.prism import load_prism_secondary
+
+prism = load_prism_secondary(compounds=["dabrafenib"])
+curve = prism.get("BRD-K09951645", "ACH-000824")  # a DoseResponse
+curve.quality_flags()                             # why a fit should not be trusted, if at all
+```
+
+What was verified about each source, and where it differs from the papers or READMEs, is in [`docs/data_status.md`](docs/data_status.md). Examples: PRISM's README swaps the asymptotes, and GDSC wells are double-annotated.
 
 ## Development
 
