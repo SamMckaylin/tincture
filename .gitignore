@@ -1,0 +1,26 @@
+# Raw and processed data are never committed (licences forbid redistribution).
+data/
+case_studies/out/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# pytest-mpl result dirs
+result_images/
+mpl-results/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/

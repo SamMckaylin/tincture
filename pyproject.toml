@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tincture"
+dynamic = ["version"]
+description = "Question-first, publication-quality visualisation of drug-discovery data."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "tincture contributors" }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+  "numpy>=1.24",
+  "pandas>=2.0",
+  "scipy>=1.10",
+  "matplotlib>=3.8",
+  "anndata>=0.10",
+  "statsmodels>=0.14",
+]
+
+[project.optional-dependencies]
+omics = ["pydeseq2>=0.4", "decoupler>=1.6", "scanpy>=1.9"]
+chem = ["rdkit>=2023.9", "mmpdb>=3.1"]
+combo = []
+dev = [
+  "pytest>=7.4",
+  "pytest-mpl>=0.17",
+  "ruff>=0.5",
+  "mypy>=1.8",
+  "pandas-stubs",
+]
+
+[tool.hatch.version]
+path = "tincture/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tincture"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["data/", "case_studies/out/", ".venv/"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["case_studies/out", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "NPY", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # allow Greek letters / unicode in strings and comments
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["tincture"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --mpl --mpl-baseline-path=tests/baseline -m 'not realdata'"
+markers = [
+  "realdata: case-study tests on downloaded public data (opt-in: pytest -m realdata)",
+  "perf: performance-budget tests",
+]
