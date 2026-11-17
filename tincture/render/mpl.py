@@ -235,7 +235,7 @@ def _draw_band(ax: Axes, m: BandMark, handles: list) -> None:
         "edgecolor": ec,
         "zorder": m.z,
         "lw": 0.8 if m.edgecolor else 0,
-        "ls": _LS[m.edge_style],
+        "ls": _LS[m.edge_style] if m.edgecolor else "-",  # mpl 3.10: no zero-width dashes
         "hatch": m.hatch,
     }
     art: Any
@@ -310,7 +310,7 @@ def _draw_rects(ax: Axes, m: RectMark, handles: list) -> None:
             facecolor=cols[i],
             edgecolor=ec,
             lw=m.linewidth,
-            ls=_LS[m.linestyle],
+            ls=_LS[m.linestyle] if m.linewidth > 0 else "-",  # mpl 3.10: no zero-width dashes
             hatch=m.hatch,
             alpha=m.alpha,
             zorder=m.z,
@@ -469,7 +469,7 @@ def _draw_ellipses(ax: Axes, m: EllipseMark, handles: list) -> None:
             facecolor=fc,
             edgecolor=cols[i],
             lw=m.linewidth,
-            ls=_LS[m.linestyle],
+            ls=_LS[m.linestyle] if m.linewidth > 0 else "-",  # mpl 3.10: no zero-width dashes
             zorder=m.z,
         )
         ax.add_patch(e)
