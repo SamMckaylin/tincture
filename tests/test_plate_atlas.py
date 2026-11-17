@@ -72,14 +72,14 @@ def test_failing_plates_terracotta_and_threshold_line():
     assert res.meta["shown_plate"] in {"P01", "P04"} and res.meta["why"] == "worst Z′"
 
 
-def test_density_view_for_1536_and_shapes_for_384():
-    r1536 = tc.plate_atlas(synthetic_plates(n_plates=2, n_wells=1536))
-    assert (
-        r1536.meta["density_view"] and r1536.spec.panel("plate").marks[0].__class__ is HeatmapMark
-    )
-    r384 = tc.plate_atlas(synthetic_plates(n_plates=2, n_wells=384))
-    markers = {m.marker for m in r384.spec.panel("plate").marks if isinstance(m, PointMark)}
-    assert markers == {"o", "s"}  # controls circles, compounds squares
+def test_plate_map_tiles_controls_as_circles_any_format():
+    for n_wells in (96, 384, 1536):
+        res = tc.plate_atlas(synthetic_plates(n_plates=2, n_wells=n_wells))
+        hm = res.spec.panel("plate").marks[0]
+        assert isinstance(hm, HeatmapMark) and hm.style == "rounded" and hm.cmap == "diverging"
+        circles = np.asarray(hm.circles)
+        assert circles.sum() > 0 and circles.sum() < circles.size  # controls only
+    assert res.meta["density_view"]  # 1536 still flagged as the dense format
 
 
 def test_missing_wells_reported_not_zero():

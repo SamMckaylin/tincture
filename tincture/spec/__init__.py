@@ -102,7 +102,7 @@ class PointMark(Mark):
     marker: str = "o"
     hollow: ArrayLike = False
     alpha: float = 1.0
-    labels: list[str] | None = None  # optional per-point text labels
+    labels: list[str] | None = None  # optional per-point text labels (drawn in the point colour)
 
     def validate(self) -> None:
         n = _same_len("PointMark", x=self.x, y=self.y, size=self.size, hollow=self.hollow)
@@ -124,6 +124,7 @@ class LineMark(Mark):
     alpha: float = 1.0
     arrow_end: bool = False
     step: bool = False
+    end_label: str | None = None  # direct label at the line's last point, in its colour
 
     def validate(self) -> None:
         _same_len("LineMark", x=self.x, y=self.y)
@@ -170,6 +171,8 @@ class BandMark(Mark):
     alpha: float = 0.35
     hatch: str | None = None
     edgecolor: str | None = None
+    edge_style: LineStyle = "dashed"  # outline style when ``edgecolor`` is given
+    inner_label: str | None = None  # direct label inside the band (top-left)
     z: float = 0.5
 
     def validate(self) -> None:
@@ -219,6 +222,8 @@ class HeatmapMark(Mark):
     vmax: float | None = None
     row_gap_after: list[int] = field(default_factory=list)
     cell_edge: str | None = "paper"
+    style: Literal["auto", "rounded", "flat"] = "auto"  # rounded cells with gutters (≤ 5,000)
+    circles: ArrayLike = None  # bool (n_rows, n_cols): draw these cells as circles
     z: float = 1.0
 
     def validate(self) -> None:
@@ -344,6 +349,9 @@ class ColorbarSpec:
     label: str = ""
     clip_note: str | None = None  # e.g. "clipped at ±3"; required for clipped maps
     orientation: Literal["vertical", "horizontal"] = "vertical"
+    ticks: list[float] | None = None
+    tick_labels: list[str] | None = None
+    compact: bool = False  # small key (whiteboard "down ▪▪▪▪▪ up" style)
 
 
 @dataclass

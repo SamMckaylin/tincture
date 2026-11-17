@@ -26,7 +26,6 @@ from tincture.report.methods import Methods, register_block
 from tincture.result import PlotResult
 from tincture.spec import (
     BandMark,
-    LegendSpec,
     LineMark,
     NoticeMark,
     Panel,
@@ -157,8 +156,12 @@ def build_spec(
             domain=(0, len(t) + 1),
             ticks=[float(i) for i in range(1, len(t) + 1)] if len(t) <= 10 else None,
         ),
-        y=Scale("linear", label="mAP (replicates vs vehicle)", domain=(0, 1.04)),
-        legend=LegendSpec(loc="lower left"),
+        y=Scale(
+            "linear",
+            label="mAP (replicates vs vehicle)",
+            domain=(0, 1.12),
+            ticks=[0.0, 0.25, 0.5, 0.75, 1.0],
+        ),
         title="Is the phenotype reproducible?",
     )
     strip.add(
@@ -168,7 +171,9 @@ def build_spec(
             span=True,
             orientation="h",
             color="neutral",
-            alpha=0.6,
+            alpha=0.5,
+            edgecolor="mid_grey",
+            inner_label="no-phenotype range (null 5–95%)",
             legend="null 5–95% (median over conditions)",
         ),
     )
@@ -205,9 +210,47 @@ def build_spec(
                 color="focus",
                 size=22,
                 categorical=True,
-                labels=[labels.get(g, g) for g in f["group"]],
                 z=4,
                 legend="focus",
+            )
+        )
+        for _, row in f.iterrows():
+            below = row["map"] > 0.9  # at the ceiling: label underneath the run of points
+            strip.add(
+                TextMark(
+                    x=float(row["rank"]),
+                    y=float(row["map"]) + (-0.05 if below else 0.04),
+                    text=labels.get(row["group"], row["group"]),
+                    color="focus",
+                    va="top" if below else "bottom",
+                    categorical=True,
+                )
+            )
+    # Direct labels (whiteboard style) instead of a legend box.
+    if (ret & ~fmask).any():
+        r_ = t[ret]
+        strip.add(
+            TextMark(
+                x=float(r_["rank"].median()),
+                y=float(r_["map"].max()) + 0.05,
+                text=f"retrievable (q < {result.alpha:g})",
+                color="reference",
+                ha="center",
+                va="bottom",
+                categorical=True,
+                size=None,
+            )
+        )
+    if (~ret & ~fmask).any():
+        nr_ = t[~ret]
+        strip.add(
+            TextMark(
+                x=float(nr_["rank"].max()),
+                y=float(nr_["map"].quantile(0.9)) + 0.08,
+                text="not retrievable",
+                color="ink_soft",
+                ha="right",
+                va="bottom",
             )
         )
     boundary = _q_boundary(t)
@@ -283,7 +326,6 @@ def build_spec(
             key="cat",
             x=Scale("log", label="Top-k features"),
             y=Scale("linear", label="Fraction shared by replicates", domain=(0, 1.02)),
-            legend=LegendSpec(loc="center left"),
             title="Replicate agreement (CAT)",
         )
         if cat_label:
@@ -304,17 +346,30 @@ def build_spec(
                 lo=cat.null_lo,
                 hi=cat.null_hi,
                 color="neutral",
-                alpha=0.6,
+                alpha=0.5,
+                edgecolor="mid_grey",
                 legend="random 95%",
             ),
             LineMark(
                 x=cat.k,
                 y=cat.observed,
                 color="focus",
-                width=1.4,
+                width=1.6,
                 categorical=True,
                 legend="replicates",
+                end_label="replicates",
             ),
+        )
+        mid = len(cat.k) // 2
+        cp.add(
+            TextMark(
+                x=float(cat.k[mid]),
+                y=float(cat.null_hi[mid]) + 0.03,
+                text="random pairs",
+                color="ink_soft",
+                ha="center",
+                va="bottom",
+            )
         )
         above = float(np.mean(cat.observed > cat.null_hi))
         cap.add(

@@ -24,7 +24,6 @@ from tincture.spec import (
     ColorbarSpec,
     HeatmapMark,
     IntervalMark,
-    LegendSpec,
     LineMark,
     NoticeMark,
     Panel,
@@ -87,16 +86,19 @@ def build_spec(data: pd.DataFrame, focus: str | None = None, clip: float = 1.0) 
         key="curves",
         x=Scale("log", label="Concentration (M)"),
         y=Scale("linear", label="Response"),
-        legend=LegendSpec(loc="lower left"),
         title="Response vs dose",
     )
     left.add(RefLineMark(axis="y", value=vehicle, label="vehicle", z=1))
     others = [c for c in compounds if c != focus]
 
+    # Direct labels: the focus line, and the "other" line whose end is farthest from it.
+    end = s.sort_values("dose").groupby("compound_id")["mean"].last()
+    other_lab = max(others, key=lambda o: abs(end[o] - end[focus])) if others else None
+
     def legend_for(c: str) -> str | None:
         if c == focus:
             return f"{focus} (focus)"
-        if others and c == others[0]:
+        if c == other_lab:
             return "other compounds" if len(others) > 1 else c
         return None
 
@@ -109,7 +111,8 @@ def build_spec(data: pd.DataFrame, focus: str | None = None, clip: float = 1.0) 
                 y=sc["mean"].to_numpy(),
                 color=col,
                 categorical=True,
-                width=1.2 if c == focus else 0.8,
+                width=1.6 if c == focus else 1.0,
+                end_label=legend_for(c),
             ),
             IntervalMark(
                 pos=sc["dose"].to_numpy(),

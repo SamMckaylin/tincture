@@ -9,12 +9,14 @@ from typing import Any, cast
 import matplotlib as mpl
 import matplotlib.style
 
-from tincture.theme.palettes import GRID, INK, INK_SOFT, PAPER
+from tincture.theme.palettes import GRID, INK, INK_SOFT, MID_GREY, PAPER
 from tincture.theme.presets import JournalPreset, get_preset
 
-#: Font preference order. Journals ask for Arial/Helvetica; Liberation Sans is metric-
-#: compatible with Arial; DejaVu Sans ships with matplotlib so is always available.
-FONT_STACK: list[str] = ["Arial", "Helvetica", "Liberation Sans", "DejaVu Sans"]
+#: Font preference order. Inter (SIL Open Font Licence) is the tincture look, matching the
+#: design whiteboard; journals that insist on Arial/Helvetica can switch with
+#: ``tc.theme.set_font("Arial")``. Liberation Sans is metric-compatible with Arial; DejaVu
+#: Sans ships with matplotlib so is always available.
+FONT_STACK: list[str] = ["Inter", "Arial", "Helvetica", "Liberation Sans", "DejaVu Sans"]
 
 #: Used by tests so baselines do not depend on which system fonts are installed.
 DETERMINISTIC_FONT = "DejaVu Sans"
@@ -39,12 +41,13 @@ def rc_params(preset: str | JournalPreset = "nature_double") -> dict[str, Any]:
         "font.sans-serif": family,
         "font.size": base,
         "axes.titlesize": base + 1,
-        "axes.titleweight": "bold",
+        "axes.titleweight": "normal",
+        "axes.titlepad": 6.0,
         "axes.titlelocation": "left",
         "axes.labelsize": base,
         "axes.labelcolor": INK,
         "axes.edgecolor": INK,
-        "axes.linewidth": 0.6,
+        "axes.linewidth": 0.7,
         "axes.spines.top": False,
         "axes.spines.right": False,
         "axes.facecolor": PAPER,
@@ -54,18 +57,22 @@ def rc_params(preset: str | JournalPreset = "nature_double") -> dict[str, Any]:
         "grid.linewidth": 0.5,
         "xtick.labelsize": small,
         "ytick.labelsize": small,
-        "xtick.color": INK,
-        "ytick.color": INK,
+        "xtick.color": MID_GREY,
+        "ytick.color": MID_GREY,
+        "xtick.labelcolor": INK_SOFT,
+        "ytick.labelcolor": INK_SOFT,
         "xtick.major.width": 0.6,
         "ytick.major.width": 0.6,
-        "xtick.major.size": 2.5,
-        "ytick.major.size": 2.5,
+        "xtick.major.size": 2.0,
+        "ytick.major.size": 2.0,
         "xtick.minor.size": 1.5,
         "ytick.minor.size": 1.5,
         "legend.fontsize": small,
         "legend.title_fontsize": small,
         "legend.frameon": False,
-        "lines.linewidth": 1.0,
+        "lines.linewidth": 1.4,
+        "lines.solid_capstyle": "round",
+        "lines.solid_joinstyle": "round",
         "lines.markersize": 4.0,
         "patch.linewidth": 0.6,
         "figure.facecolor": PAPER,

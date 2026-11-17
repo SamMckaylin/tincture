@@ -118,9 +118,13 @@ def test_non_retrievable_greyed_retrievable_blue_focus_terracotta():
         by_legend[next(k for k in by_legend if k and k.startswith("retrievable"))].color
         == "reference"
     )
-    assert by_legend["focus"].color == "focus" and by_legend["focus"].labels == [
-        "synthetic_medium 1 µM"
-    ]
+    assert by_legend["focus"].color == "focus"
+    from tincture.spec import TextMark
+
+    texts = {m.text: m for m in res.spec.panel("strip").marks if isinstance(m, TextMark)}
+    assert texts["synthetic_medium 1 µM"].color == "focus"  # direct label, no legend box
+    assert "retrievable (q < 0.05)" in texts and "not retrievable" in texts
+    assert res.spec.panel("strip").legend is None
 
 
 def test_q_line_drawn_when_separable():

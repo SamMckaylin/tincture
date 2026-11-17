@@ -17,7 +17,7 @@
 
 **Data:** Hallmark (50 sets) and PROGENy (14 pathways) gene sets, fetched from OmniPath and cached with SHA-256. The GDSC loader now uses categorical dtypes and integer keys: 16,354 plates load in 35 s, where the first full run was killed for running out of memory.
 
-**Plots**
+**Plots** (restyled after M2 to match the design whiteboard; see `docs/design/style.md`)
 - `tc.retrievability` (§5.5, the gate):
   - mAP strip with null band, q = 0.05 boundary, focus labels and greyed non-retrievable conditions;
   - CAT panel; classic replicate-scatter fallback;

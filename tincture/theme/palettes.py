@@ -39,7 +39,8 @@ BRIEF_PURPLE: Final = "#7C5CBF"
 BRIEF_GREEN: Final = "#2E8B57"
 
 INK: Final = "#222222"  # text, axes
-INK_SOFT: Final = "#6B6B6B"  # secondary text, gridlines labels
+INK_SOFT: Final = "#6B6B6B"  # secondary text, tick labels
+MID_GREY: Final = "#878787"  # vehicle / neutral marks, ticks (whiteboard grey)
 GRID: Final = "#E6E6E6"
 PAPER: Final = "#FFFFFF"
 
@@ -67,6 +68,8 @@ SEMANTIC: Final[dict[str, str]] = {
     "warn": TERRACOTTA,
     "ink": INK,
     "ink_soft": INK_SOFT,
+    "mid_grey": MID_GREY,
+    "vehicle": MID_GREY,
     "grid": GRID,
     "paper": PAPER,
     "none": "none",
@@ -189,3 +192,11 @@ def sample_cmap(name: str, values: np.ndarray, vmin: float, vmax: float) -> list
         NEUTRAL if not np.isfinite(val) else to_hex(cm(float(xi)))
         for val, xi in zip(v, x, strict=True)
     ]
+
+
+def darken(color: str, amount: float = 0.28) -> str:
+    """A darker shade of ``color`` (used for marker outlines and band edges)."""
+    from matplotlib.colors import to_hex, to_rgb
+
+    r, g, b = to_rgb(resolve_color(color))
+    return to_hex((r * (1 - amount), g * (1 - amount), b * (1 - amount)))

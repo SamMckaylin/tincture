@@ -23,7 +23,6 @@ from tincture.spec import (
     BandMark,
     ColorbarSpec,
     HeatmapMark,
-    LegendSpec,
     LineMark,
     NoticeMark,
     Panel,
@@ -34,7 +33,6 @@ from tincture.spec import (
     Scale,
 )
 from tincture.stats.zprime import PlateQC, Selector, plate_qc
-from tincture.theme.palettes import sample_cmap
 
 register_block(
     "zprime",
@@ -71,11 +69,13 @@ def _binned(x: np.ndarray, y: np.ndarray, n_bins: int = N_BINS) -> tuple[np.ndar
     return cx, med, lo, hi
 
 
-def _summary_marks(panel: Panel, x: np.ndarray, y: np.ndarray) -> None:
+def _summary_marks(panel: Panel, x: np.ndarray, y: np.ndarray, colour: str = "reference") -> None:
     cx, med, lo, hi = _binned(x, y)
     panel.add(
-        BandMark(x=cx, lo=lo, hi=hi, color="reference_light", alpha=0.7),
-        LineMark(x=cx, y=med, color="reference", width=1.2, categorical=True),
+        BandMark(
+            x=cx, lo=lo, hi=hi, color=f"{colour}_light", alpha=0.75, inner_label="5–95% per bin"
+        ),
+        LineMark(x=cx, y=med, color=colour, width=1.4, categorical=True, end_label="median"),
     )
 
 
@@ -94,73 +94,71 @@ def _choose_plate(qc: PlateQC, plate: str | None) -> tuple[str, str]:
     return str(mid["plate"]), "median Z′"
 
 
+#: Plate-map colour: log2(signal / plate's negative-control median), clipped at ±1
+#: (half / double); the neutral grey bin is ±0.2 log2 (≈ ±15%).
+PLATE_CLIP = 1.0
+
+
 def _plate_panel(pt: PlateTable, qc: PlateQC, plate: str, why: str) -> Panel:
+    """Plate map in the whiteboard style: rounded tiles with gutters, controls as circles,
+    diverging colour vs the plate's negative controls, unreported wells as empty outlines."""
     nr, nc = pt.shape
     d = pt.data[pt.data["plate"].astype(str) == plate]
     neg_med = float(qc.per_plate.set_index("plate").loc[plate, "neg_median"])
-    rel = d["value"].to_numpy(float) / neg_med * 100 if neg_med > 0 else np.full(len(d), np.nan)
-    vmax = float(max(120.0, np.nanpercentile(rel, 99))) if np.isfinite(rel).any() else 120.0
-    title = f"Plate {plate} ({why})"
-    if pt.n_wells >= DENSITY_THRESHOLD:
-        m = np.full((nr, nc), np.nan)
-        m[d["row"].to_numpy(), d["col"].to_numpy()] = rel
-        p = Panel(
-            key="plate",
-            x=Scale(
-                "linear",
-                label="Column",
-                ticks=[0, 11, 23, 35, nc - 1],
-                tick_labels=["1", "12", "24", "36", str(nc)],
-            ),
-            y=Scale(
-                "linear",
-                label="Row",
-                ticks=[0, 7, 15, 23, nr - 1],
-                tick_labels=[row_label(i) for i in (0, 7, 15, 23, nr - 1)],
-            ),
-            colorbar=ColorbarSpec(
-                label="% of negative-control median", clip_note=f"scale 0–{vmax:.0f}%"
-            ),
-            title=title,
-            aspect="equal",
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rel = (
+            np.log2(np.maximum(d["value"].to_numpy(float), 1e-9) / neg_med)
+            if neg_med > 0
+            else np.full(len(d), np.nan)
         )
-        p.add(HeatmapMark(values=m, cmap="viridis", vmin=0.0, vmax=vmax, cell_edge=None))
-    else:
-        p = Panel(
-            key="plate",
-            x=Scale(
-                "linear",
-                label="Column",
-                domain=(-0.7, nc - 0.3),
-                ticks=list(range(0, nc, max(1, nc // 6))),
-                tick_labels=[str(i + 1) for i in range(0, nc, max(1, nc // 6))],
-            ),
-            y=Scale(
-                "linear",
-                label="Row",
-                domain=(-0.7, nr - 0.3),
-                invert=True,
-                ticks=list(range(nr)),
-                tick_labels=[row_label(i) for i in range(nr)],
-            ),
-            legend=LegendSpec(loc="upper left", outside=True),
-            title=title,
-            aspect="equal",
+    m = np.full((nr, nc), np.nan)
+    r, c = d["row"].to_numpy(), d["col"].to_numpy()
+    m[r, c] = rel
+    circles = np.zeros((nr, nc), bool)
+    ctrl = d["well_type"].astype(str).isin(["neg_ctrl", "pos_ctrl", "blank"]).to_numpy()
+    circles[r[ctrl], c[ctrl]] = True
+    step_c = 1 if nc <= 12 else (4 if nc <= 24 else 12)
+    step_r = 1 if nr <= 8 else (4 if nr <= 16 else 8)
+    cols_t = [0, *range(step_c - 1, nc, step_c)] if step_c > 1 else list(range(nc))
+    rows_t = [0, *range(step_r - 1, nr, step_r)] if step_r > 1 else list(range(nr))
+    cols_t = sorted(set(cols_t) | {nc - 1})
+    rows_t = sorted(set(rows_t) | {nr - 1})
+    p = Panel(
+        key="plate",
+        x=Scale(
+            "linear",
+            label="Column",
+            ticks=[float(i) for i in cols_t],
+            tick_labels=[str(i + 1) for i in cols_t],
+        ),
+        y=Scale(
+            "linear",
+            label="Row",
+            ticks=[float(i) for i in rows_t],
+            tick_labels=[row_label(i) for i in rows_t],
+        ),
+        colorbar=ColorbarSpec(
+            label="signal vs negative controls",
+            clip_note=f"log2, clipped at ±{PLATE_CLIP:g}",
+            orientation="horizontal",
+            ticks=[-PLATE_CLIP, 0.0, PLATE_CLIP],
+            tick_labels=["÷2", "same", "×2"],
+            compact=True,
+        ),
+        title=f"Plate {plate} ({why})",
+        aspect="equal",
+        frame=False,
+    )
+    p.add(
+        HeatmapMark(
+            values=m,
+            cmap="diverging",
+            clip=PLATE_CLIP,
+            circles=circles,
+            style="rounded",
+            cell_edge=None,
         )
-        ctrl = d["well_type"].isin(["neg_ctrl", "pos_ctrl", "blank"]).to_numpy()
-        cols = sample_cmap("viridis", rel, 0.0, vmax)
-        for mask, marker, lab in ((ctrl, "o", "controls"), (~ctrl, "s", "other wells")):
-            if mask.any():
-                p.add(
-                    PointMark(
-                        x=d["col"].to_numpy()[mask],
-                        y=d["row"].to_numpy()[mask],
-                        color=[c for c, k in zip(cols, mask, strict=True) if k],
-                        marker=marker,
-                        size=60 if nr <= 8 else 14,
-                        legend=lab,
-                    )
-                )
+    )
     return p
 
 
@@ -174,11 +172,6 @@ def build_spec(
     t = qc.per_plate
     shown, why = _choose_plate(qc, plate)
     left = _plate_panel(pt, qc, shown, why)
-    colour_note = (
-        []
-        if pt.n_wells >= DENSITY_THRESHOLD
-        else ["Well colour: % of the plate's negative-control median (viridis; dark = low)"]
-    )
     left.rowspan = 3
     left.row, left.col = 0, 0
     n = len(t)
@@ -198,16 +191,25 @@ def build_spec(
         y=Scale("linear", label="Z′", domain=(zlo, 1.0)),
         row=0,
         col=1,
-        title="Z′ per plate (terracotta: Z′ < 0.5)",
+        title="Z′ per plate",
     )
     fail = t["fails"].to_numpy()
     passed = ~fail & np.isfinite(z)
     binned = n > BIN_THRESHOLD
     if binned:
         fin = np.isfinite(zc)
-        _summary_marks(zp, x[fin], zc[fin])
+        _summary_marks(zp, x[fin], zc[fin], colour="good")
         if fail.any():
-            zp.add(PointMark(x=x[fail], y=zc[fail], color="focus", size=2, categorical=True))
+            zp.add(
+                PointMark(
+                    x=x[fail],
+                    y=zc[fail],
+                    color="focus",
+                    size=2,
+                    categorical=True,
+                    edgecolor="focus",
+                )
+            )
     elif n <= 40:
         ok_w = 0.8
         if passed.any():
@@ -217,8 +219,9 @@ def build_spec(
                     y0=np.full(passed.sum(), zlo),
                     width=ok_w,
                     height=zc[passed] - zlo,
-                    color="ink_soft",
-                    legend="Z′ ≥ 0.5",
+                    color="window",
+                    edgecolor="good",
+                    categorical=True,
                 )
             )
         if fail.any():
@@ -229,8 +232,8 @@ def build_spec(
                     width=ok_w,
                     height=np.maximum(zc[fail] - zlo, 0),
                     color="focus",
+                    edgecolor="focus",
                     categorical=True,
-                    legend="failing (Z′ < 0.5)",
                 )
             )
     else:
@@ -239,10 +242,10 @@ def build_spec(
                 PointMark(
                     x=x[passed],
                     y=zc[passed],
-                    color="ink_soft",
-                    size=3,
-                    alpha=0.6,
-                    legend="Z′ ≥ 0.5",
+                    color="good",
+                    size=6,
+                    alpha=0.8,
+                    categorical=True,
                 )
             )
         if fail.any():
@@ -251,9 +254,8 @@ def build_spec(
                     x=x[fail],
                     y=zc[fail],
                     color="focus",
-                    size=5,
+                    size=8,
                     categorical=True,
-                    legend="failing (Z′ < 0.5)",
                 )
             )
     zp.add(
@@ -265,7 +267,7 @@ def build_spec(
     ep = Panel(
         key="edge",
         x=xs,
-        y=Scale("linear", label="Outer seeded ring / interior"),
+        y=Scale("linear", label="Edge ÷ interior"),
         row=1,
         col=1,
         title="Edge effect",
@@ -294,13 +296,13 @@ def build_spec(
         x=xs,
         y=Scale(
             "log",
-            label=f"Neg. control / median\n({qc.drift_basis})",
+            label="Control ÷ median",
             ticks=[0.25, 0.5, 1.0, 2.0, 4.0],
             tick_labels=["0.25", "0.5", "1", "2", "4"],
         ),
         row=2,
         col=1,
-        title="Control drift",
+        title=f"Control drift (vs {qc.drift_basis})",
     )
     lv = t["neg_level"].to_numpy(float)
     okl = np.isfinite(lv)
@@ -400,7 +402,6 @@ def build_spec(
         footer=[
             f"Z′: positive = {qc.pos.describe()}, negative = {qc.neg.describe()}; "
             f"edge ratio from {qc.edge.describe()} wells",
-            *colour_note,
             *footer,
         ],
         warnings=list(cap.notes),

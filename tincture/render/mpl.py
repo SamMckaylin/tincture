@@ -12,7 +12,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
-from matplotlib.colors import to_rgba
+from matplotlib.colors import ListedColormap, to_rgba
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.offsetbox import AnchoredText
@@ -36,11 +36,32 @@ from tincture.spec import (
     Scale,
     TextMark,
 )
-from tincture.theme.palettes import INK_SOFT, NEUTRAL, PAPER, resolve_cmap, resolve_color
+from tincture.theme.palettes import (
+    GRID,
+    INK_SOFT,
+    NEUTRAL,
+    PAPER,
+    darken,
+    resolve_cmap,
+    resolve_color,
+)
 from tincture.theme.presets import JournalPreset, get_preset
 from tincture.theme.style import theme_context
 
+GRID_LINE = GRID
+
 _LS = {"solid": "-", "dashed": "--", "dotted": ":", "dashdot": "-."}
+
+
+def _halo() -> list:
+    """Thin paper-coloured outline behind direct labels so they stay legible over data."""
+    from matplotlib import patheffects
+
+    return [patheffects.withStroke(linewidth=2.4, foreground=PAPER)]
+
+
+#: Points above this count are drawn without a darker outline (dense runs would merge).
+DENSE_POINTS = 150
 
 #: Soft background behind reference-line labels so they stay legible over data.
 _LABEL_BOX = {"boxstyle": "round,pad=0.15", "fc": PAPER, "ec": "none", "alpha": 0.85}
@@ -86,6 +107,7 @@ def _draw_points(ax: Axes, m: PointMark, handles: list) -> None:
     hollow = _bcast(m.hollow, n).astype(bool)
     edge = resolve_color(m.edgecolor) if m.edgecolor else None
     # group by (colour, hollow) so each artist has one categorical colour
+    label_colours = cols
     keys = sorted({(c, bool(h)) for c, h in zip(cols, hollow, strict=True)})
     for c, h in keys:
         idx = np.array([cc == c and bool(hh) == h for cc, hh in zip(cols, hollow, strict=True)])
@@ -95,21 +117,23 @@ def _draw_points(ax: Axes, m: PointMark, handles: list) -> None:
             s=sizes[idx],
             marker=m.marker,
             facecolors="none" if h else c,
-            edgecolors=c if h else (edge or c),
-            linewidths=0.8 if h else 0.4,
+            edgecolors=c if h else (edge or (c if n > DENSE_POINTS else darken(c))),
+            linewidths=0.9 if h else 0.5,
             alpha=m.alpha,
             zorder=m.z,
         )
         _tag(sc, c, m.categorical)
     if m.labels is not None:
-        for xi, yi, lab in zip(x, y, m.labels, strict=True):
+        for xi, yi, lab, lc in zip(x, y, m.labels, label_colours, strict=True):
             ax.annotate(
                 lab,
                 (xi, yi),
-                xytext=(3, 2),
+                xytext=(4, 3),
                 textcoords="offset points",
                 fontsize=plt.rcParams["xtick.labelsize"],
+                color=lc if lc != "none" else resolve_color("ink"),
                 zorder=m.z + 0.1,
+                path_effects=_halo(),
             )
     if m.legend:
         c = cols[0] if cols else resolve_color("ink")
@@ -148,6 +172,22 @@ def _draw_line(ax: Axes, m: LineMark, handles: list) -> None:
             arrowprops={"arrowstyle": "-|>", "color": c, "lw": m.width, "shrinkA": 0},
             zorder=m.z,
         )
+    if m.end_label and x.size:
+        ok = np.isfinite(x) & np.isfinite(y)
+        if ok.any():
+            ax.annotate(
+                m.end_label,
+                (x[ok][-1], y[ok][-1]),
+                xytext=(4, 0),
+                textcoords="offset points",
+                ha="left",
+                va="center",
+                color=c,
+                fontsize=plt.rcParams["xtick.labelsize"],
+                annotation_clip=False,
+                zorder=m.z + 0.1,
+                path_effects=_halo(),
+            )
     if m.legend:
         handles.append(Line2D([], [], color=c, lw=m.width, ls=_LS[m.style], label=m.legend))
 
@@ -176,22 +216,65 @@ def _draw_band(ax: Axes, m: BandMark, handles: list) -> None:
     c = resolve_color(m.color)
     ec = resolve_color(m.edgecolor) if m.edgecolor else "none"
     kw: dict[str, Any] = {
-        "color": c,
-        "alpha": m.alpha,
+        "facecolor": to_rgba(c, m.alpha),
+        "edgecolor": ec,
         "zorder": m.z,
-        "lw": 0.6 if m.edgecolor else 0,
+        "lw": 0.8 if m.edgecolor else 0,
+        "ls": _LS[m.edge_style],
         "hatch": m.hatch,
     }
     art: Any
     if m.span:
         lo, hi = float(m.lo), float(m.hi)
         art = ax.axvspan(lo, hi, **kw) if m.orientation == "v" else ax.axhspan(lo, hi, **kw)
-        art.set_edgecolor(ec)
     elif m.orientation == "v":
         art = ax.fill_between(np.asarray(m.x, float), m.lo, m.hi, **kw)
     else:
         art = ax.fill_betweenx(np.asarray(m.x, float), m.lo, m.hi, **kw)
     _tag(art, c, m.categorical)
+    if m.inner_label:
+        lab_c = ec if m.edgecolor else resolve_color("ink_soft")
+        fs = plt.rcParams["xtick.labelsize"]
+        if m.span and m.orientation == "v":
+            ax.annotate(
+                m.inner_label,
+                (float(m.lo), 1.0),
+                xycoords=ax.get_xaxis_transform(),
+                xytext=(3, -3),
+                textcoords="offset points",
+                ha="left",
+                va="top",
+                color=lab_c,
+                fontsize=fs,
+                zorder=m.z + 0.1,
+            )
+        elif m.span:
+            ax.annotate(
+                m.inner_label,
+                (0.0, float(m.hi)),
+                xycoords=ax.get_yaxis_transform(),
+                xytext=(3, -3),
+                textcoords="offset points",
+                ha="left",
+                va="top",
+                color=lab_c,
+                fontsize=fs,
+                zorder=m.z + 0.1,
+            )
+        else:
+            xs = np.asarray(m.x, float)
+            his = np.broadcast_to(np.asarray(m.hi, float), xs.shape)
+            ax.annotate(
+                m.inner_label,
+                (xs[0], his[0]),
+                xytext=(3, 3),
+                textcoords="offset points",
+                ha="left",
+                va="bottom",
+                color=lab_c,
+                fontsize=fs,
+                zorder=m.z + 0.1,
+            )
     if m.legend:
         handles.append(Patch(facecolor=c, alpha=m.alpha, hatch=m.hatch, label=m.legend))
 
@@ -230,47 +313,105 @@ def _draw_rects(ax: Axes, m: RectMark, handles: list) -> None:
         )
 
 
+#: Heatmaps up to this many cells are drawn as rounded tiles with gutters.
+ROUNDED_MAX_CELLS = 5000
+GUTTER = 0.14
+ROUNDING = 0.2
+
+
 def _draw_heatmap(ax: Axes, m: HeatmapMark) -> Any:
+    """Cells: colour by value; ``mask`` → neutral (e.g. not significant); NaN → not reported
+    (paper with a faint outline, so it never reads as a real neutral value)."""
+    from matplotlib.cm import ScalarMappable
+    from matplotlib.collections import PatchCollection
+    from matplotlib.colors import Normalize
+    from matplotlib.patches import FancyBboxPatch
+
     v = np.asarray(m.values, float)
     n_rows, n_cols = v.shape
-    mask = np.zeros_like(v, bool) if m.mask is None else np.asarray(m.mask, bool)
-    mask = mask | np.isnan(v)
+    absent = np.isnan(v)
+    neutral = np.zeros_like(v, bool) if m.mask is None else np.asarray(m.mask, bool)
     if m.cmap == "diverging":
         from tincture.theme.palettes import diverging_cmap, diverging_norm
 
         cmap = diverging_cmap().copy()
-        norm = diverging_norm(float(m.clip))  # type: ignore[arg-type]
-        vmin = vmax = None
+        norm: Any = diverging_norm(float(m.clip))  # type: ignore[arg-type]
     else:
         resolved = resolve_cmap(m.cmap)
         cmap = plt.get_cmap(resolved).copy() if isinstance(resolved, str) else resolved.copy()
-        norm = None
-        vmin, vmax = m.vmin, m.vmax
-    cmap = cmap.with_extremes(bad=NEUTRAL)
-    data = np.ma.masked_array(v, mask=mask)
+        norm = Normalize(vmin=m.vmin, vmax=m.vmax)
+        if m.vmin is None or m.vmax is None:
+            finite = v[np.isfinite(v)]
+            norm = Normalize(
+                vmin=float(finite.min()) if m.vmin is None and finite.size else m.vmin,
+                vmax=float(finite.max()) if m.vmax is None and finite.size else m.vmax,
+            )
     ypos = heatmap_row_positions(n_rows, m.row_gap_after)
-    edge = resolve_color(m.cell_edge) if m.cell_edge else "face"
-    mappable = None
-    # draw contiguous row blocks separately so gaps stay empty
-    starts = [0] + [g + 1 for g in sorted(m.row_gap_after)]
-    ends = [g + 1 for g in sorted(m.row_gap_after)] + [n_rows]
-    xe = np.arange(n_cols + 1) - 0.5
-    for s, e in zip(starts, ends, strict=True):
-        if s >= e:
-            continue
-        ye = np.concatenate([ypos[s:e] - 0.5, [ypos[e - 1] + 0.5]])
-        mappable = ax.pcolormesh(
-            xe,
-            ye,
-            data[s:e],
-            cmap=cmap,
-            norm=norm,
-            vmin=vmin,
-            vmax=vmax,
-            edgecolors=edge,
-            linewidth=0.3 if m.cell_edge else 0,
-            zorder=m.z,
+    rounded = m.style == "rounded" or (m.style == "auto" and v.size <= ROUNDED_MAX_CELLS)
+    circles = np.zeros_like(v, bool) if m.circles is None else np.asarray(m.circles, bool)
+    mappable = ScalarMappable(norm=norm, cmap=cmap)
+    if rounded:
+        faces, edges, patches = [], [], []
+        size = 1.0 - GUTTER
+        for i in range(n_rows):
+            for j in range(n_cols):
+                x0, y0 = j - size / 2, ypos[i] - size / 2
+                if circles[i, j]:
+                    patch: Any = Ellipse((j, ypos[i]), size, size)
+                else:
+                    patch = FancyBboxPatch(
+                        (x0, y0), size, size, boxstyle=f"round,pad=0,rounding_size={ROUNDING}"
+                    )
+                patches.append(patch)
+                if absent[i, j]:
+                    faces.append(to_rgba(PAPER))
+                    edges.append(to_rgba(GRID_LINE))
+                elif neutral[i, j]:
+                    faces.append(to_rgba(NEUTRAL))
+                    edges.append((0, 0, 0, 0))
+                else:
+                    faces.append(cmap(norm(v[i, j])))
+                    edges.append((0, 0, 0, 0))
+        coll = PatchCollection(
+            patches, facecolors=faces, edgecolors=edges, linewidths=0.5, zorder=m.z
         )
+        ax.add_collection(coll)
+    else:
+        cmap = cmap.with_extremes(bad=PAPER)
+        data = np.ma.masked_array(np.where(neutral & ~absent, np.nan, v), mask=absent | neutral)
+        edge = resolve_color(m.cell_edge) if m.cell_edge else "face"
+        starts = [0] + [g + 1 for g in sorted(m.row_gap_after)]
+        ends = [g + 1 for g in sorted(m.row_gap_after)] + [n_rows]
+        xe = np.arange(n_cols + 1) - 0.5
+        for s0, e0 in zip(starts, ends, strict=True):
+            if s0 >= e0:
+                continue
+            ye = np.concatenate([ypos[s0:e0] - 0.5, [ypos[e0 - 1] + 0.5]])
+            ax.pcolormesh(
+                xe,
+                ye,
+                data[s0:e0],
+                cmap=cmap,
+                norm=norm,
+                edgecolors=edge,
+                linewidth=0.3 if m.cell_edge else 0,
+                zorder=m.z,
+            )
+        if neutral.any():
+            nv = np.ma.masked_array(np.ones_like(v), mask=~(neutral & ~absent))
+            for s0, e0 in zip(starts, ends, strict=True):
+                if s0 >= e0:
+                    continue
+                ye = np.concatenate([ypos[s0:e0] - 0.5, [ypos[e0 - 1] + 0.5]])
+                ax.pcolormesh(
+                    xe,
+                    ye,
+                    nv[s0:e0],
+                    cmap=ListedColormap([NEUTRAL]),
+                    edgecolors=edge,
+                    linewidth=0.3 if m.cell_edge else 0,
+                    zorder=m.z,
+                )
     ax.set_xlim(-0.5, n_cols - 0.5)
     ax.set_ylim(ypos[-1] + 0.5 if n_rows else 0.5, -0.5)
     return mappable
@@ -369,6 +510,7 @@ def _draw_text(ax: Axes, m: TextMark) -> None:
         fontweight=m.weight,
         rotation=m.rotation,
         zorder=m.z,
+        path_effects=_halo(),
     )
     _tag(t, c, m.categorical)
 
@@ -482,6 +624,7 @@ def _draw_panel(fig: Figure, ax: Axes, panel: Panel) -> None:
         if not panel.frame:
             for sp in ax.spines.values():
                 sp.set_visible(False)
+            ax.tick_params(length=0)
     else:  # polar
         ax.set_theta_zero_location("N")  # type: ignore[attr-defined]
         ax.set_theta_direction(-1)  # type: ignore[attr-defined]
@@ -501,11 +644,20 @@ def _draw_panel(fig: Figure, ax: Axes, panel: Panel) -> None:
         label = panel.colorbar.label
         if panel.colorbar.clip_note:
             label = f"{label}\n({panel.colorbar.clip_note})" if label else panel.colorbar.clip_note
+        spec_cb = panel.colorbar
         cb = fig.colorbar(
-            mappable, ax=ax, orientation=panel.colorbar.orientation, shrink=0.8, aspect=25
+            mappable,
+            ax=ax,
+            orientation=spec_cb.orientation,
+            shrink=0.35 if spec_cb.compact else 0.8,
+            aspect=12 if spec_cb.compact else 25,
+            pad=0.02 if spec_cb.compact else 0.05,
         )
-        cb.set_label(label)
-        cb.outline.set_linewidth(0.4)
+        cb.set_label(label, fontsize=plt.rcParams["xtick.labelsize"], color=INK_SOFT)
+        cb.outline.set_visible(False)
+        cb.ax.tick_params(length=0)
+        if spec_cb.ticks is not None:
+            cb.set_ticks(spec_cb.ticks, labels=spec_cb.tick_labels)
     if panel.legend is not None and handles:
         lkw: dict[str, Any] = {"title": panel.legend.title, "ncol": panel.legend.ncol}
         if panel.legend.outside:
@@ -548,7 +700,13 @@ def render_mpl(
             ax.set_gid(f"tc:panel:{panel.key}")
             _draw_panel(fig, ax, panel)
         if spec.title:
-            fig.suptitle(spec.title, x=0.01, ha="left", fontweight="bold")
+            fig.suptitle(
+                spec.title,
+                x=0.01,
+                ha="left",
+                fontweight="normal",
+                fontsize=plt.rcParams["font.size"] + 3,
+            )
         if spec.footer:
             _add_footer(fig, spec.footer, p)
         _freeze_ticks(fig)
@@ -570,7 +728,7 @@ def _freeze_ticks(fig: Figure) -> None:
         for which in ("x", "y"):
             kw: dict[str, Any] = {
                 "labelsize": rc[f"{which}tick.labelsize"],
-                "labelcolor": rc[f"{which}tick.color"],
+                "labelcolor": rc[f"{which}tick.labelcolor"],
                 "color": rc[f"{which}tick.color"],
                 "width": rc[f"{which}tick.major.width"],
             }
