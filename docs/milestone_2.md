@@ -25,10 +25,10 @@
 - `tc.plate_atlas` (§5.6):
   - plate map with automatic density view at 1536 wells; circles for controls and squares for others at ≤384; absent wells grey;
   - Z′ per plate with the 0.5 line and failing plates in terracotta; edge-ratio and control-drift panels;
-  - binned median and 5–95% band above 1,000 plates;
+  - above 1,000 plates the per-plate panels switch to a binned median and 5–95% band (every failing plate still drawn); at 16k plates the raw points were an unreadable solid block;
   - classic plain-heatmap fallback.
 
-**Tests:** 230 unit, guard and visual tests (+5 opt-in real-data tests). New image baselines for Retrievability and Plate Atlas, colour-blind-checked.
+**Tests:** 218 unit, guard and visual tests, plus 7 opt-in real-data tests. New image baselines for Retrievability and Plate Atlas, colour-blind-checked.
 
 ## Acceptance criteria
 
@@ -56,7 +56,8 @@ Pathway check: abexinostat 1 µM in A549 gives Hallmark E2F targets −18 and G2
 - the outermost seeded ring reads **60%** of the interior (IQR 0.34–0.89), a strong edge effect;
 - 791 plates leave the outer ring unseeded;
 - the negative-control level relative to same-line plates falls **27% across scan order** (Spearman ρ = −0.35, p < 0.001), a real long-term assay-signal decline worth knowing about;
-- 11.6 M well positions are absent from the release and are drawn grey.
+- 11.6 M well positions are absent from the release and are drawn grey;
+- the binned view shows the edge effect easing from about plate 7,000 in scan order.
 
 ## What failed or changed along the way
 
