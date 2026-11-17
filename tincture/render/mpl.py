@@ -351,31 +351,42 @@ def _draw_heatmap(ax: Axes, m: HeatmapMark) -> Any:
     circles = np.zeros_like(v, bool) if m.circles is None else np.asarray(m.circles, bool)
     mappable = ScalarMappable(norm=norm, cmap=cmap)
     if rounded:
-        faces, edges, patches = [], [], []
         size = 1.0 - GUTTER
+        mapped, mapped_vals, plain, plain_face, plain_edge = [], [], [], [], []
         for i in range(n_rows):
             for j in range(n_cols):
-                x0, y0 = j - size / 2, ypos[i] - size / 2
                 if circles[i, j]:
                     patch: Any = Ellipse((j, ypos[i]), size, size)
                 else:
                     patch = FancyBboxPatch(
-                        (x0, y0), size, size, boxstyle=f"round,pad=0,rounding_size={ROUNDING}"
+                        (j - size / 2, ypos[i] - size / 2),
+                        size,
+                        size,
+                        boxstyle=f"round,pad=0,rounding_size={ROUNDING}",
                     )
-                patches.append(patch)
                 if absent[i, j]:
-                    faces.append(to_rgba(PAPER))
-                    edges.append(to_rgba(GRID_LINE))
+                    plain.append(patch)
+                    plain_face.append(to_rgba(PAPER))
+                    plain_edge.append(to_rgba(GRID_LINE))
                 elif neutral[i, j]:
-                    faces.append(to_rgba(NEUTRAL))
-                    edges.append((0, 0, 0, 0))
+                    plain.append(patch)
+                    plain_face.append(to_rgba(NEUTRAL))
+                    plain_edge.append((0, 0, 0, 0))
                 else:
-                    faces.append(cmap(norm(v[i, j])))
-                    edges.append((0, 0, 0, 0))
-        coll = PatchCollection(
-            patches, facecolors=faces, edgecolors=edges, linewidths=0.5, zorder=m.z
-        )
-        ax.add_collection(coll)
+                    mapped.append(patch)
+                    mapped_vals.append(v[i, j])
+        if mapped:
+            # A true colormapped collection: colour-blind checks treat it as a colormap,
+            # not as hundreds of categorical colours.
+            coll = PatchCollection(mapped, cmap=cmap, norm=norm, edgecolors="none", zorder=m.z)
+            coll.set_array(np.asarray(mapped_vals))
+            ax.add_collection(coll)
+        if plain:
+            ax.add_collection(
+                PatchCollection(
+                    plain, facecolors=plain_face, edgecolors=plain_edge, linewidths=0.5, zorder=m.z
+                )
+            )
     else:
         cmap = cmap.with_extremes(bad=PAPER)
         data = np.ma.masked_array(np.where(neutral & ~absent, np.nan, v), mask=absent | neutral)

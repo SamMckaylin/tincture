@@ -191,3 +191,13 @@ def test_output_independent_of_user_style():
             return buf.getvalue()
 
     assert png("classic") == png("default")
+
+
+def test_rounded_sequential_heatmap_is_not_categorical():
+    """Regression: tiles of a sequential map must not be checked as categorical colours."""
+    v = np.linspace(0, 1, 64).reshape(8, 8)
+    p = Panel(colorbar=ColorbarSpec(label="v")).add(
+        HeatmapMark(values=v, cmap="viridis", style="rounded")
+    )
+    fig = render_mpl(PlotSpec(plot="x", panels=[p]))
+    check_colorblind(fig)  # must not raise on near-identical viridis tiles
