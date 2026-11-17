@@ -6,12 +6,12 @@ Drug-discovery papers recycle the same generic plots (PCA, UMAP, volcano, GSEA b
 
 | Question | Plot | Status |
 |---|---|---|
-| What does this compound look like? | Compass (**available**), Neighbourhood Card (M5) | **available** / planned |
+| What does this compound look like? | Compass, Neighbourhood Card | **available** |
 | Does the mechanism change with dose? | Dose Paths | **available** |
 | What did it do biologically? | Fingerprint Strip, Effect Ladder | **available** |
 | Is the effect real? | Retrievability, Plate Atlas | **available** |
-| Is there a safe, effective dose? | Window | planned (M5) |
-| How specific is it? | Selectivity Spectrum | planned (M5) |
+| Is there a safe, effective dose? | Window | **available** |
+| How specific is it? | Selectivity Spectrum | **available** (real kinase panels pending, see below) |
 | Does potency hold up from enzyme to cell to phenotype? | Engagement Ladder | planned (M6) |
 | Do two drugs work better together, at reachable doses? | Combination Surface / Lift | planned (M7) |
 | What happens first, and what follows? | Onset Timeline | planned (M7) |
@@ -24,7 +24,7 @@ Every plot ships with:
 
 Uncertainty is on by default. When a result is weak (a failed fit, no confident neighbour, a bend within noise), the figure says so.
 
-> **Status: Milestone 4 of 7 (v0.1).** Six question-first plots work on real public data: **Retrievability**, **Plate Atlas**, **Compass**, **Dose Paths**, **Fingerprint Strip** and **Effect Ladder**. Underneath: verified loaders for sci-Plex, PRISM and GDSC, and a statistics layer (empirical-Bayes signatures, pathway scores, NNLS projection, dose-path bend test). See the [gallery](docs/gallery.md), the [API reference](docs/api.md) and the milestone reports in [`docs/`](docs/).
+> **Status: Milestone 5 of 7.** Nine question-first plots: **Retrievability**, **Plate Atlas**, **Compass**, **Dose Paths**, **Fingerprint Strip**, **Effect Ladder**, **Window**, **Neighbourhood Card** and **Selectivity Spectrum**. All but the Selectivity Spectrum are validated on real public data (sci-Plex, PRISM, GDSC, LINCS L1000). The kinase panels it needs (NanoBRET, Davis 2011) could not be downloaded automatically; see [`docs/data_status.md`](docs/data_status.md). Underneath: verified loaders and a statistics layer (empirical-Bayes signatures, pathway scores, NNLS projection, dose-path bend test, 4PL fits with bootstrap, neighbour nulls). See the [gallery](docs/gallery.md), the [API reference](docs/api.md) and the milestone reports in [`docs/`](docs/).
 
 ## Before / after
 

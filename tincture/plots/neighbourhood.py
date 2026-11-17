@@ -65,6 +65,11 @@ def structure_image(smiles: str | None, size: int = 360) -> np.ndarray | None:
     return np.asarray(img.convert("RGBA"))
 
 
+def _pct(x: float) -> str:
+    """Percentile text that never rounds up to 100%."""
+    return "more than 99.9%" if x > 0.999 else f"{x:.1%}"
+
+
 def _ann(lib: ReferenceLibrary, ref: str, key: str, default: str = "") -> str:
     v = lib.annotations.get(ref, {}).get(key, default)
     return default if v in ("", "nan", "None") else v
@@ -121,8 +126,9 @@ def build_spec(
             f"No neighbour passes q < {alpha:g}: the closest, "
             f"{_ann(lib, res.names[best], 'name', res.names[best])} "
             f"({_ann(lib, res.names[best], 'moa', 'no MoA')}), has cosine "
-            f"{res.similarity[best]:.2f} (q {fmt_p(res.q[best])}), within what random "
-            "library pairs reach."
+            f"{res.similarity[best]:.2f}, above {_pct(res.percentile[best])} of library pairs "
+            f"(p {fmt_p(res.p[best])}), but q {fmt_p(res.q[best])} after correcting for "
+            f"{len(res.names)} comparisons."
         )
     else:
         moas = list(dict.fromkeys(_ann(lib, res.names[i], "moa", "no MoA") for i in conf))

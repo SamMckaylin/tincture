@@ -89,6 +89,45 @@ PLOTS = [
 ]
 
 
+OUT_CS = ROOT / "case_studies" / "out"
+
+#: Further real-data plots from other case studies: (folder, stem, plot, question, classic,
+#: data note, what changes). Skipped with a note when the case study has not been run.
+EXTRA = [
+    (
+        "cs2_prism_windows",
+        "window_ACH-000219",
+        "Window",
+        "Is there a dose that works without the toxicity?",
+        "overlaid dose-response curves",
+        "PRISM 20Q2 secondary (Corsello et al. 2020, CC BY 4.0): dabrafenib in A375 (BRAF "
+        "V600E melanoma) against the median of 676 non-skin lines as the toxicity proxy "
+        "(CS2).",
+        [
+            "EC90 (on-target) and EC10 (toxicity) with bootstrap intervals instead of IC50s",
+            "the window is drawn only when both fits pass quality checks, and is open-ended "
+            "when toxicity never appears in the tested range",
+            "exposure (free Cmax) is a band, never a line, and only when supplied",
+        ],
+    ),
+    (
+        "cs7_reference_library",
+        "card_vorinostat_all",
+        "Neighbourhood Card",
+        "Which annotated compounds does this one resemble?",
+        "ranked similarity bars",
+        "LINCS L1000 phase II (GEO GSE70138) consensus signatures, 603 compounds with "
+        "Repurposing Hub MoA; vorinostat left out of its own library (CS7).",
+        [
+            "each neighbour gets a q value against the library's own null, and only "
+            "confident neighbours are coloured; with none, the card says so",
+            "similarity intervals from the query's own replicate signatures",
+            "the query's structure sits next to its neighbours",
+        ],
+    ),
+]
+
+
 def _caption(md: Path) -> str:
     if not md.exists():
         return ""
@@ -116,6 +155,25 @@ def _plate_atlas_synthetic(tmp: Path) -> tuple[Path, Path, str]:
     )
     written = tc.export(res, tmp / "plate_atlas", formats=("png",))
     return written["png"], written["classic_png"], res.caption
+
+
+def _selectivity_synthetic(tmp: Path) -> tuple[Path, Path, str]:
+    sys.path.insert(0, str(ROOT))
+    import tincture as tc
+    from tests.fixtures.synthetic_potency import synthetic_panel
+
+    res = tc.selectivity(
+        synthetic_panel(),
+        "synthetic_cpd",
+        "SYN_TARGET",
+        cmax=(3e-8, 3e-7),
+        panel_size=518,
+        panel_name="kinases",
+        title="Selectivity Spectrum (synthetic panel)",
+        footer=("Synthetic potencies from tests/fixtures; not real data.",),
+    )
+    w = tc.export(res, tmp / "selectivity", formats=("png",))
+    return w["png"], w["classic_png"], res.caption
 
 
 def main() -> int:
@@ -149,8 +207,53 @@ def main() -> int:
             *[f"- {a}" for a in adds],
             "",
         ]
+    for folder, stem, plot, question, classic, note, adds in EXTRA:
+        src = OUT_CS / folder
+        if not (src / f"{stem}.png").exists():
+            lines += [f"## {plot}: {question}", "", f"_Run the {folder} case study first._", ""]
+            continue
+        _shrink(src / f"{stem}.png", IMG / f"{stem}.png")
+        _shrink(src / f"{stem}_classic.png", IMG / f"{stem}_classic.png")
+        lines += [
+            f"## {plot}: {question}",
+            "",
+            note,
+            "",
+            f"| Classic: {classic} | tincture: {plot} |",
+            "|---|---|",
+            f"| ![classic](img/gallery/{stem}_classic.png) | ![{plot}](img/gallery/{stem}.png) |",
+            "",
+            f"**Caption (generated).** {_caption(src / f'{stem}.md')}",
+            "",
+            "**What changes:**",
+            *[f"- {a}" for a in adds],
+            "",
+        ]
     tmp = ROOT / "case_studies" / "out" / "gallery_tmp"
     tmp.mkdir(parents=True, exist_ok=True)
+    sel = _selectivity_synthetic(tmp)
+    _shrink(sel[0], IMG / "selectivity_synthetic.png")
+    _shrink(sel[1], IMG / "selectivity_synthetic_classic.png")
+    lines += [
+        "## Selectivity Spectrum: how specific is this compound?",
+        "",
+        "Shown on a **synthetic** panel: the kinase panels (NanoBRET, Davis 2011) could not be "
+        "downloaded automatically (see `docs/data_status.md`).",
+        "",
+        "| Classic: bar chart of most potent targets | tincture: Selectivity Spectrum |",
+        "|---|---|",
+        "| ![classic](img/gallery/selectivity_synthetic_classic.png) "
+        "| ![Selectivity Spectrum](img/gallery/selectivity_synthetic.png) |",
+        "",
+        f"**Caption (generated).** {sel[2]}",
+        "",
+        "**What changes:**",
+        "- the whole panel, strongest first, with censored (not detected) targets shown "
+        "and counted",
+        "- off-targets judged against exposure (free Cmax band) when supplied, otherwise by "
+        "a stated 10-fold rule; panel coverage in the footer",
+        "",
+    ]
     pa, pa_classic, pa_cap = _plate_atlas_synthetic(tmp)
     _shrink(pa, IMG / "plate_atlas_synthetic.png")
     _shrink(pa_classic, IMG / "plate_atlas_synthetic_classic.png")

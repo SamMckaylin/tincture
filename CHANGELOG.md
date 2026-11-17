@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### M5: Window, Neighbourhood Card, Selectivity Spectrum (2026-11-18)
+- `stats.hill`: bounded 4PL fits (soft-L1), EC90/EC10 definitions, warm-started bootstrap, median-of-units curves with unit bootstrap.
+- `tc.window`: fit-quality guards (convergence, R² ≥ 0.8, effect ≥ 50%), censored toxicity, Cmax as a range band, assay context; classic overlaid curves. CS2 (PRISM, dabrafenib): skin lines have windows (12/44 vs 9/676, p = 1e-10).
+- `io.lincs`: LINCS L1000 phase II Level 5 (GSE70138, SHA-512 pinned) reduced to 978 landmark genes; MoA from the Repurposing Hub via PRISM.
+- `stats.neighbours` + `tc.neighbourhood`: cosine neighbours with a library-pair null (`"all"` per handover or `"unrelated"`), BH q, replicate bootstrap CIs, RDKit structure, "no confident neighbour" guard. CS7: held-out top-1 neighbour shares the MoA 30% of the time vs 1.0% by chance.
+- `model.potency.PotencyTable` + `tc.selectivity`: potency strip, exposure band or stated 10-fold rule, censored values, mixed-assay refusal, panel coverage.
+- `ImageMark`, `ReferenceLibrary.annotations`, `library_from_compounds`, SHA-512 checksums.
+- D7 (NanoBRET) and D8 (Davis 2011) downloads blocked by publisher access controls; recorded with manual steps.
+
 ### M4: v0.1 polish (2026-11-17)
 - One-command CS1 (`python case_studies/cs1_sciplex_hdac.py`) verified from a fresh clone with the core install; the sci-Plex cache builds on first use.
 - Hallmark gene sets are fetched directly from OmniPath (no decoupler needed); identical to decoupler's table.

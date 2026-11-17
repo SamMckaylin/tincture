@@ -63,6 +63,50 @@ Each plot answers one drug-discovery question. The left column is the plot peopl
 - the top genes with 95% intervals, grouped by gene set; intervals crossing zero are grey
 - the count strip keeps the volcano's overview: how many genes went up and down across the transcriptome
 
+## Window: Is there a dose that works without the toxicity?
+
+PRISM 20Q2 secondary (Corsello et al. 2020, CC BY 4.0): dabrafenib in A375 (BRAF V600E melanoma) against the median of 676 non-skin lines as the toxicity proxy (CS2).
+
+| Classic: overlaid dose-response curves | tincture: Window |
+|---|---|
+| ![classic](img/gallery/window_ACH-000219_classic.png) | ![Window](img/gallery/window_ACH-000219.png) |
+
+**Caption (generated).** Dabrafenib reaches 90% of its effect at 8.44 nM (95% CI 4.38 nM–16.9 nM) before the toxicity readout loses 10% viability (EC10(tox) 2.32 µM): a window of 275-fold. No exposure (free Cmax) was supplied, so the window is not placed against clinical concentrations.
+
+**What changes:**
+- EC90 (on-target) and EC10 (toxicity) with bootstrap intervals instead of IC50s
+- the window is drawn only when both fits pass quality checks, and is open-ended when toxicity never appears in the tested range
+- exposure (free Cmax) is a band, never a line, and only when supplied
+
+## Neighbourhood Card: Which annotated compounds does this one resemble?
+
+LINCS L1000 phase II (GEO GSE70138) consensus signatures, 603 compounds with Repurposing Hub MoA; vorinostat left out of its own library (CS7).
+
+| Classic: ranked similarity bars | tincture: Neighbourhood Card |
+|---|---|
+| ![classic](img/gallery/card_vorinostat_all_classic.png) | ![Neighbourhood Card](img/gallery/card_vorinostat_all.png) |
+
+**Caption (generated).** Note: No neighbour passes q < 0.05: the closest, belinostat (HDAC inhibitor), has cosine 0.92 (q = 0.061), within what random library pairs reach.
+
+**What changes:**
+- each neighbour gets a q value against the library's own null, and only confident neighbours are coloured; with none, the card says so
+- similarity intervals from the query's own replicate signatures
+- the query's structure sits next to its neighbours
+
+## Selectivity Spectrum: how specific is this compound?
+
+Shown on a **synthetic** panel: the kinase panels (NanoBRET, Davis 2011) could not be downloaded automatically (see `docs/data_status.md`).
+
+| Classic: bar chart of most potent targets | tincture: Selectivity Spectrum |
+|---|---|
+| ![classic](img/gallery/selectivity_synthetic_classic.png) | ![Selectivity Spectrum](img/gallery/selectivity_synthetic.png) |
+
+**Caption (generated).** synthetic_cpd binds its intended target SYN_TARGET at 3.16 nM (rank 1 of 74 tested). 2 off-target(s) are highlighted (2.7% of the panel); the strongest is SYN_OFF0 at 10 nM. Off-targets in peach have potency stronger than the low end of the free Cmax range (30 nM–300 nM).
+
+**What changes:**
+- the whole panel, strongest first, with censored (not detected) targets shown and counted
+- off-targets judged against exposure (free Cmax band) when supplied, otherwise by a stated 10-fold rule; panel coverage in the footer
+
 ## Plate Atlas: can we trust this plate?
 
 Shown on **synthetic** test plates: GDSC-derived plate figures are kept local (licence; see `docs/data_status.md`). Run `case_studies/cs3_plate_qc.py` to see it on all 16,354 GDSC2 plates.
