@@ -80,7 +80,7 @@ from tincture.io.prism import load_prism_secondary
 
 prism = load_prism_secondary(compounds=["dabrafenib"])
 curve = prism.get("BRD-K09951645", "ACH-000824")  # a DoseResponse
-curve.quality_flags()                             # why a fit should not be trusted, if at all
+curve.quality_flags()  # why a fit should not be trusted, if at all
 ```
 
 What was verified about each source, and where it differs from the papers or READMEs, is in [`docs/data_status.md`](docs/data_status.md). Examples: PRISM's README swaps the asymptotes, and GDSC wells are double-annotated.

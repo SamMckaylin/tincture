@@ -33,7 +33,7 @@ combo = []
 dev = [
   "pytest>=7.4",
   "pytest-mpl>=0.17",
-  "ruff>=0.5",
+  "ruff==0.17.5",  # pinned: formatter output must match between local and CI
   "mypy>=1.8",
   "pandas-stubs",
 ]
