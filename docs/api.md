@@ -329,7 +329,14 @@ DatasetUnavailable
 
 ### `tincture.datasets.genesets`
 
-Gene-set libraries (MSigDB Hallmark, PROGENy) fetched via decoupler/OmniPath and cached.
+Gene-set libraries (MSigDB Hallmark, PROGENy) fetched from OmniPath and cached.
+
+#### `fetch_hallmark(url: str = 'https://static.omnipathdb.org/tables/msigdb-hallmark.tsv.gz', timeout: float = 120.0) -> pd.DataFrame`
+
+Hallmark gene sets from OmniPath's static table (no decoupler needed).
+
+Same processing as ``decoupler.op.hallmark(organism="human")``: drop the ``HALLMARK_``
+prefix, split complexes (``COMPLEX:A_B``) into member genes, de-duplicate.
 
 #### `load_geneset(name: str, root: Path | None = None, download: bool = True) -> GeneSetLibrary`
 

@@ -15,6 +15,7 @@ Retrievability → Compass → Dose Paths → Fingerprint Strip → Effect Ladde
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -276,6 +277,43 @@ def run() -> tuple[Path, bool]:
         f"{dose_tab['raw cos (first run)'].median():.2f} and is kept in the table.)",
     )
     ok = ok1 and ok2 and ok3
+
+    # Key facts (answer key for the gallery and the user study), from the same results.
+    fpt = pts[FOCUS].projection
+    S_f, q_f = fp.meta["score"].loc[FOCUS], fp.meta["q"].loc[FOCUS]
+    top_pw = S_f[q_f < 0.05].abs().sort_values(ascending=False).index[:3]
+    pano = all_hd.meta["paths"].get("S1030")
+    lad = el.meta["table"]
+    facts = {
+        "focus": FOCUS,
+        "focus_name": "Abexinostat",
+        "compass_top_reference": SHORT.get(spokes[int(np.argmax(fpt.weights))]),
+        "compass_top_share": round(float(fpt.shares.max()), 2),
+        "compass_unexplained": round(float(fpt.residual), 2),
+        "retrievable_by_dose": {
+            tc.report.fmt_conc(float(g.split("|")[1])): bool(r)
+            for g, r in zip(table["group"], table["retrievable"], strict=True)
+            if g.startswith(f"{FOCUS}|")
+        },
+        "fingerprint_top_pathways": [
+            {"pathway": pathway_label(c), "direction": "up" if S_f[c] > 0 else "down"}
+            for c in top_pw
+        ],
+        "fingerprint_nearest": fp.meta["nearest"],
+        "fingerprint_nearest_name": str(obs.loc[fp.meta["nearest"], "compound_name"]).split(" (")[
+            0
+        ],
+        "ladder_counts": el.meta["counts"],
+        "ladder_top_gene": str(lad.loc[lad["lfc"].abs().idxmax(), "symbol"]),
+        "panobinostat_bend_above": (
+            tc.report.fmt_conc(float(pano.doses[pano.bend_index - 1]))
+            if pano is not None and pano.bend_index is not None
+            else None
+        ),
+        "abexinostat_bends": all_hd.meta["paths"][FOCUS].bend_index is not None,
+        "checks_pass": bool(ok),
+    }
+    (rep.dir / "results.json").write_text(json.dumps(facts, indent=2), encoding="utf-8")
     rep.text("", f"**Overall: {'PASS' if ok else 'FAIL'}**")
     return rep.write(), ok
 

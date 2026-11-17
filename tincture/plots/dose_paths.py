@@ -517,12 +517,37 @@ def build_classic_spec(
             tick_labels=[fmt_conc(float(d)) for d in ud],
         ),
     )
-    p.add(PointMark(x=pcs[:, 0], y=pcs[:, 1], values=np.log10(doses), cmap="viridis", size=16))
+    # best conventional version: one marker shape per compound, labelled at its top dose
+    from tincture.plots.compass import short_name
+
+    markers = ["o", "s", "^", "D", "v", "P", "X", "*"]
+    cids = list(dict.fromkeys(s.compound_id for s in sigs))
+    lo, hi = float(np.log10(ud.min())), float(np.log10(ud.max()))
+    for k, cid in enumerate(cids):
+        m = np.array([s.compound_id == cid for s in sigs])
+        p.add(
+            PointMark(
+                x=pcs[m, 0],
+                y=pcs[m, 1],
+                values=np.log10(doses[m]),
+                cmap="viridis",
+                vmin=lo,
+                vmax=hi,
+                size=18,
+                marker=markers[k % len(markers)] if len(cids) <= len(markers) else "o",
+            )
+        )
+        if len(cids) <= len(markers):
+            j = int(np.flatnonzero(m)[np.argmax(doses[m])])
+            name = short_name(str(sigs[j].meta.get("compound_name") or cid))
+            p.add(TextMark(x=float(pcs[j, 0]), y=float(pcs[j, 1]), text=f"  {name}",
+                           color="ink_soft", ha="left", va="center", size=6.5))  # fmt: skip
     return PlotSpec(
         plot="dose_paths_classic",
         panels=[p],
         title="PCA coloured by dose",
-        caption="PCA of the same signatures, coloured by dose.",
+        caption="PCA of the same signatures, coloured by dose (one marker per compound, "
+        "labelled at its top dose).",
         aspect=0.75,
     ).validate()
 

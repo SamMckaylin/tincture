@@ -33,6 +33,7 @@ from tincture.report.methods import Methods, register_block
 from tincture.result import PlotResult
 from tincture.spec import (
     EllipseMark,
+    LegendSpec,
     LineMark,
     NoticeMark,
     Panel,
@@ -62,11 +63,14 @@ MAX_SPOKES = 8
 register_block(
     "compass",
     "Each signature was fitted as a non-negative least-squares combination of {n_refs} "
-    "reference signatures (scaled to unit length), giving per-reference weights and the "
-    "reconstruction R²; residual = 1 − R². On the compass, references are spokes ordered by "
-    "optimal-leaf-ordered clustering of their cosine similarities; a compound's direction is "
-    "the weighted resultant of its spokes and its distance from the centre is the norm of its "
-    "shrunk signature (linear scale). Compounds that belong to a reference class were fitted "
+    "reference signatures (class means of member compounds, scaled to unit length), giving "
+    "per-reference weights. Spokes are the most coherent classes (mean pairwise cosine of "
+    "members × √members), ordered by optimal-leaf-ordered clustering of their cosine "
+    "similarities. A compound's direction is the weighted resultant of its spokes; its "
+    "distance from the centre is its noise-corrected magnitude √(‖y‖² − Σ se²) on unshrunk "
+    "log fold changes (linear scale), and the share of that signal explained by the "
+    "references is R²; residual = 1 − R². Residual is only judged for compounds with signal "
+    "(χ² test over features, z > 3). Compounds that belong to a reference class were fitted "
     "against references rebuilt without them. Ellipses are 95% regions from {n_boot} "
     "posterior draws of the signature.",
 )
@@ -657,8 +661,12 @@ def build_classic_spec(
     signatures: Mapping[str, Signature] | None = None,
     features: np.ndarray | None = None,
     focus: str | None = None,
+    classes: Mapping[str, Sequence[str]] | None = None,
+    class_labels: Mapping[str, str] | None = None,
     **_: object,
 ) -> PlotSpec:
+    """The best conventional comparator: PCA with reference-class members coloured by class
+    (legend), the focus compound labelled and everything else grey."""
     if not signatures or features is None:
         raise TinctureDataError("PCA fallback needs signatures.")
     ids = list(signatures)
@@ -667,9 +675,26 @@ def build_classic_spec(
     U, S, _vt = np.linalg.svd(Xc, full_matrices=False)
     pcs = U[:, :2] * S[:2]
     ve = S**2 / (S**2).sum()
-    p = Panel(x=Scale(label=f"PC1 ({ve[0]:.0%})"), y=Scale(label=f"PC2 ({ve[1]:.0%})"))
+    p = Panel(
+        x=Scale(label=f"PC1 ({ve[0]:.0%})"),
+        y=Scale(label=f"PC2 ({ve[1]:.0%})"),
+        legend=LegendSpec(title="mechanism class", loc="best") if classes else None,
+    )
     mask = np.array([c == focus for c in ids])
-    p.add(PointMark(x=pcs[~mask, 0], y=pcs[~mask, 1], color="mid_grey", size=10))
+    member = np.zeros(len(ids), bool)
+    palette = ["reference", "novel", "good", "focus_light", "reference_light", "novel_light"]
+    for k, (name, members) in enumerate((classes or {}).items()):
+        if k >= len(palette):
+            break
+        m = np.array([c in set(members) for c in ids]) & ~mask
+        member |= m
+        if m.any():
+            lab = (class_labels or {}).get(name, name)
+            p.add(PointMark(x=pcs[m, 0], y=pcs[m, 1], color=palette[k], size=12,
+                            categorical=True, legend=lab))  # fmt: skip
+    rest = ~mask & ~member
+    p.add(PointMark(x=pcs[rest, 0], y=pcs[rest, 1], color="mid_grey", size=10,
+                    legend="other" if classes else None))  # fmt: skip
     if mask.any():
         lab = str(signatures[focus].meta.get("compound_name") or focus) if focus else ""
         p.add(
@@ -728,7 +753,14 @@ def plot(
         gate_mode,
     )
     classic = (
-        build_classic("compass", signatures=signatures, features=lib.features, focus=focus)
+        build_classic(
+            "compass",
+            signatures=signatures,
+            features=lib.features,
+            focus=focus,
+            classes={n: lib.member_ids[n] for n in lib.names},
+            class_labels=spoke_labels,
+        )
         if len(signatures) >= 3
         else None
     )
