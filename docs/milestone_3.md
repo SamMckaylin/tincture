@@ -78,6 +78,7 @@
 5. **Dose Paths in small multiples** used each compound's own top reference, so valproate and tubastatin got HSP90 and Aurora axes. Added `reference=`; CS1 uses the HDAC axis for every panel.
 6. **Colour-blind check vs ordinal colours.** The PCA-by-dose fallback sampled viridis into hex colours, so the checker read four close categorical colours and blocked the export. Dose is now a true colour scale with a colourbar.
 7. **Footer overflow:** long footers ran off the page. They now wrap.
+8. **CI was red on the Python 3.10 job for three pushes** (Compass, Dose Paths and Fingerprint commits). I only noticed when checking CI at the end of the milestone. The cause: matplotlib 3.10 (unpinned there) rejects a dashed style on a zero-width patch edge, while 3.11 tolerates it. Fixed in the renderer and verified locally against both 3.10.9 and 3.11.2. Lesson: check CI after every push, not only at milestone end.
 
 ## Decisions taken (delegated by you)
 
