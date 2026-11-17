@@ -220,6 +220,7 @@ def test_unknown_focus_and_classic():
         ("Toremifene Citrate", "Toremifene"),
         ("ENMD-2076 L-(+)-Tartaric acid", "ENMD-2076"),
         ("SAHA", "SAHA"),
+        ("Lapatinib (GW-572016) Ditosylate", "Lapatinib"),
     ],
 )
 def test_short_name(raw, clean):

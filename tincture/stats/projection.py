@@ -121,6 +121,12 @@ def bootstrap_ellipse(
         draw = effect + np.nan_to_num(sd) * rng.standard_normal(effect.shape)
         x, y, _ = compass_xy(nnls_project(draw, R, sd), angles)
         pts[b] = (x, y)
+    return cov_ellipse(pts, level)
+
+
+def cov_ellipse(pts: np.ndarray, level: float = 0.95) -> tuple[float, float, float, float, float]:
+    """Normal-theory ellipse (cx, cy, width, height, angle_deg) covering ``level`` of 2-D
+    points (n × 2)."""
     c = pts.mean(axis=0)
     cov = np.cov(pts.T)
     vals, vecs = np.linalg.eigh(cov)

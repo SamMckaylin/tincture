@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from tincture.errors import TinctureDataError
 
@@ -80,8 +81,16 @@ class Signature:
 
     def align(self, features: np.ndarray | list[str]) -> Signature:
         """Reorder/restrict to ``features``; missing features become NaN."""
-        idx = {f: i for i, f in enumerate(self.features)}
-        pos = np.array([idx.get(str(f), -1) for f in features])
+        target = np.asarray(features).astype(str)
+        if target.shape == self.features.shape and np.array_equal(target, self.features):
+            pos = np.arange(target.size)
+        else:
+            src = pd.Index(self.features.astype(str))
+            if not src.is_unique:  # keep the last occurrence, as a dict lookup would
+                idx = {f: i for i, f in enumerate(self.features.astype(str))}
+                pos = np.array([idx.get(f, -1) for f in target])
+            else:
+                pos = src.get_indexer(target)
         take = np.where(pos >= 0, pos, 0)
 
         def pick(a: np.ndarray | None, axis: int = 0) -> np.ndarray | None:

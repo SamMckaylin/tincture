@@ -152,7 +152,7 @@ def short_name(name: str) -> str:
     )
     while True:  # strip trailing "(synonym)" and salt words, in any order
         new = re.sub(r"\s+\([^()]*\)$", "", base).strip()
-        new = re.sub(rf"\s+({salts})$", "", new, flags=re.I).strip()
+        new = re.sub(rf"\s+(?:di|bi|tri)?({salts})$", "", new, flags=re.I).strip()
         if new == base:
             break
         base = new
