@@ -209,3 +209,14 @@ def test_dose_paths_baseline():
                         focus="synthetic_bent").figure()  # fmt: skip
     check_colorblind(fig)
     return fig
+
+
+def test_shared_reference_in_small_multiples():
+    D = _dirs()
+    q = {f"synthetic_q{i}": _straight(D) for i in range(9)}
+    ss, lib, _ = _world(q)
+    res = tc.dose_paths(ss, list(q), lib, STRESS, n_boot=50, reference="B")
+    assert set(res.meta["refs"].values()) == {"B"}
+    assert all(p.x.label in ("B-likeness →", "") for p in res.spec.panels)
+    with pytest.raises(TinctureDataError, match="not a spoke"):
+        tc.dose_paths(ss, list(q), lib, STRESS, reference="Z")

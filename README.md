@@ -6,9 +6,9 @@ Drug-discovery papers recycle the same generic plots (PCA, UMAP, volcano, GSEA b
 
 | Question | Plot | Status |
 |---|---|---|
-| What does this compound look like? | Compass, Neighbourhood Card | planned (M3, M5) |
-| Does the mechanism change with dose? | Dose Paths | planned (M3) |
-| What did it do biologically? | Fingerprint Strip, Effect Ladder | planned (M3) |
+| What does this compound look like? | Compass (**available**), Neighbourhood Card (M5) | **available** / planned |
+| Does the mechanism change with dose? | Dose Paths | **available** |
+| What did it do biologically? | Fingerprint Strip, Effect Ladder | **available** |
 | Is the effect real? | Retrievability, Plate Atlas | **available** |
 | Is there a safe, effective dose? | Window | planned (M5) |
 | How specific is it? | Selectivity Spectrum | planned (M5) |
@@ -24,7 +24,7 @@ Every plot ships with:
 
 Uncertainty is on by default. When a result is weak (a failed fit, no confident neighbour, a bend within noise), the figure says so.
 
-> **Status: Milestone 2 of 7.** Done so far: the rendering core, the data model, verified loaders for sci-Plex, PRISM and GDSC, the statistics layer (signatures with empirical-Bayes moderation and shrinkage, pathway scores) and the first two question-first plots: **Retrievability** and **Plate Atlas**. See [`HANDOVER.md`](HANDOVER.md) §8 and the reports in [`docs/`](docs/).
+> **Status: Milestone 3 of 7.** Done so far: the rendering core, the data model, verified loaders for sci-Plex, PRISM and GDSC, the statistics layer (signatures with empirical-Bayes moderation and shrinkage, pathway scores, NNLS projection, dose-path bend test) and six question-first plots: **Retrievability**, **Plate Atlas**, **Compass**, **Dose Paths**, **Fingerprint Strip** and **Effect Ladder**. See [`HANDOVER.md`](HANDOVER.md) §8 and the reports in [`docs/`](docs/).
 
 ## Install
 
@@ -62,6 +62,29 @@ qc = tc.plate_atlas(
     edge=Selector(tags=("UN-USED", "NC-1", "NC-0")),
 )
 ```
+
+```python
+from tincture.datasets.genesets import load_geneset
+from tincture.stats.paths import stress_gene_set
+
+sigs = load_sciplex3(cell_lines=["A549"]).signatures()[0]  # shrunk logFC vs vehicle
+hallmark = load_geneset("hallmark").table
+# lib = library_from_signatures(...)  # reference classes, e.g. sci-Plex pathway annotation
+
+tc.compass({c: sigs.get(c, 1e-5) for c in compounds}, lib, focus="S1090")  # which mechanism?
+tc.dose_paths(sigs, ["S1090", "S1030"], lib, stress_gene_set(hallmark), focus="S1090")
+tc.fingerprint(sigs, hallmark, focus="S1090", references=hdac_ids)  # pathway-level strip
+tc.effect_ladder(sigs, "S1090", 1e-5, gene_sets=hallmark)  # which genes, how sure
+```
+
+The full worked example is `case_studies/cs1_sciplex_hdac.py` (HDAC inhibitors in sci-Plex3 A549; report in `case_studies/out/`, summary in [`docs/milestone_3.md`](docs/milestone_3.md)).
+
+| | |
+|---|---|
+| ![Compass](docs/img/cs1_compass.png) | ![Dose Paths](docs/img/cs1_dose_paths.png) |
+| ![Fingerprint Strip](docs/img/cs1_fingerprint.png) | ![Effect Ladder](docs/img/cs1_effect_ladder.png) |
+
+*Real data: sci-Plex3 (Srivatsan et al. 2020, GSE139944), A549, 24 h. Abexinostat in terracotta.*
 
 Every plot returns a `PlotResult` with `.caption`, `.methods`, `.warnings`, `.classic` and `.save()`.
 

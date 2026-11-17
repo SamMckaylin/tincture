@@ -99,9 +99,24 @@ def heatmap_row_positions(n_rows: int, gaps_after: list[int]) -> np.ndarray:
 # ----------------------------------------------------------------------------------------
 
 
-def _draw_points(ax: Axes, m: PointMark, handles: list) -> None:
+def _draw_points(ax: Axes, m: PointMark, handles: list) -> Any:
     x, y = np.asarray(m.x, float), np.asarray(m.y, float)
     n = x.size
+    if m.values is not None:  # one colormapped collection (a scale, not categories)
+        resolved = resolve_cmap(m.cmap)
+        return ax.scatter(
+            x,
+            y,
+            c=np.asarray(m.values, float),
+            cmap=resolved,
+            vmin=m.vmin,
+            vmax=m.vmax,
+            s=_bcast(m.size, n).astype(float),
+            marker=m.marker,
+            edgecolors="none",
+            alpha=m.alpha,
+            zorder=m.z,
+        )
     cols = _colors(m.color, n)
     sizes = _bcast(m.size, n).astype(float)
     hollow = _bcast(m.hollow, n).astype(bool)
@@ -606,7 +621,9 @@ def _draw_panel(fig: Figure, ax: Axes, panel: Panel) -> None:
     heatmap_cols: np.ndarray | None = None
     for m in sorted(panel.marks, key=lambda mk: mk.z):
         if isinstance(m, PointMark):
-            _draw_points(ax, m, handles)
+            sc = _draw_points(ax, m, handles)
+            if sc is not None:
+                mappable = sc
         elif isinstance(m, LineMark):
             _draw_line(ax, m, handles)
         elif isinstance(m, IntervalMark):
@@ -768,7 +785,12 @@ def _first_available(families: list[str]) -> str:
 
 def _add_footer(fig: Figure, lines: list[str], p: JournalPreset) -> None:
     """Reserve space at the bottom of the figure and print footer lines there."""
+    import textwrap
+
     fs = max(p.min_font_pt, p.base_font_pt - 1)
+    # wrap to the figure width (Inter averages about 0.55 em per character)
+    width_chars = max(40, int(fig.get_figwidth() * 72.0 / (0.55 * fs)) - 2)
+    lines = [w for line in lines for w in (textwrap.wrap(line, width_chars) or [""])]
     line_h_in = fs * 1.35 / 72.0
     h_in = fig.get_figheight()
     frac = min(0.4, (len(lines) * line_h_in + 0.04) / h_in)

@@ -29,8 +29,8 @@ from tincture.report.methods import Methods, register_block
 from tincture.result import PlotResult
 from tincture.spec import (
     BandMark,
+    ColorbarSpec,
     EllipseMark,
-    LegendSpec,
     LineMark,
     NoticeMark,
     Panel,
@@ -43,7 +43,6 @@ from tincture.spec import (
 from tincture.stats.paths import MIN_BEND_DEG, DosePath, PathAxes, dose_path
 from tincture.stats.projection import cov_ellipse, nnls_project
 from tincture.stats.signatures import SignatureSet
-from tincture.theme.palettes import sample_cmap
 
 MAX_SINGLE_PANEL = 8
 
@@ -509,15 +508,16 @@ def build_classic_spec(
     ve = S**2 / (S**2).sum()
     doses = np.array([s.dose for s in sigs])
     ud = np.unique(doses)
-    cols = sample_cmap("viridis", np.arange(len(ud)), 0, max(len(ud) - 1, 1))
     p = Panel(
         x=Scale(label=f"PC1 ({ve[0]:.0%})"),
         y=Scale(label=f"PC2 ({ve[1]:.0%})"),
-        legend=LegendSpec(title="dose", loc="best"),
+        colorbar=ColorbarSpec(
+            label="dose",
+            ticks=[float(v) for v in np.log10(ud)],
+            tick_labels=[fmt_conc(float(d)) for d in ud],
+        ),
     )
-    for d, c in zip(ud, cols, strict=True):
-        m = doses == d
-        p.add(PointMark(x=pcs[m, 0], y=pcs[m, 1], color=c, size=14, legend=fmt_conc(float(d))))
+    p.add(PointMark(x=pcs[:, 0], y=pcs[:, 1], values=np.log10(doses), cmap="viridis", size=16))
     return PlotSpec(
         plot="dose_paths_classic",
         panels=[p],
@@ -537,6 +537,7 @@ def plot(
     cell_loss: Mapping[tuple[str, float], float] | None = None,
     gate: Collection[str] | None = None,
     spoke_labels: Mapping[str, str] | None = None,
+    reference: str | None = None,
     n_boot: int = 500,
     title: str = "Dose Paths",
     footer: Sequence[str] = (),
@@ -546,7 +547,9 @@ def plot(
     ``stress_genes``: gene symbols for the stress axis (see
     :func:`tincture.stats.paths.stress_gene_set`). ``y_axis="cell_loss"`` uses
     ``cell_loss[(compound, dose)]`` instead. ``gate``: compound ids that passed the
-    retrievability gate; others are dropped and the caption says so.
+    retrievability gate; others are dropped and the caption says so. ``reference``: use
+    this reference for x in every panel (default: the focus compound's top reference for one
+    panel, each compound's own top reference in small multiples).
     """
     from tincture.plots.compass import select_spokes, short_name
 
@@ -587,8 +590,12 @@ def plot(
         vals = np.array([v for (_c, d), v in cell_loss.items() if d == stratum.lowest])
         vals = vals[np.isfinite(vals)]
         thr = float(np.quantile(vals, 0.99)) if vals.size else 0.0
-    shared = None
-    if len(compounds) <= MAX_SINGLE_PANEL:  # one panel: x must mean the same for every path
+    shared = reference
+    if reference is not None and reference not in lib.names:
+        raise TinctureDataError(
+            f"Reference {reference!r} is not a spoke.", fix=f"Use one of {lib.names}."
+        )
+    if shared is None and len(compounds) <= MAX_SINGLE_PANEL:  # x must mean the same
         anchor = focus or compounds[0]
         sigs = _aligned(sigset, anchor, feats)
         if not sigs:

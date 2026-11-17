@@ -105,6 +105,10 @@ class PointMark(Mark):
     hollow: ArrayLike = False
     alpha: float = 1.0
     labels: list[str] | None = None  # optional per-point text labels (drawn in the point colour)
+    values: ArrayLike = None  # colour points by value through ``cmap`` (ordinal, e.g. log dose)
+    cmap: str = "viridis"
+    vmin: float | None = None
+    vmax: float | None = None
 
     def validate(self) -> None:
         n = _same_len("PointMark", x=self.x, y=self.y, size=self.size, hollow=self.hollow)

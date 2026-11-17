@@ -233,3 +233,22 @@ def test_compass_baseline():
     fig = tc.compass(_queries(D, np.random.default_rng(5)), lib, focus="synthetic_q_mix").figure()
     check_colorblind(fig)
     return fig
+
+
+def test_compass_budget_500_compounds():
+    """HANDOVER budget: 500 compounds in under 3 s (fit + spec + figure)."""
+    import time
+
+    lib, D, _ = _library()
+    rng = np.random.default_rng(11)
+    q = {
+        f"synthetic_b{i}": _sig(f"synthetic_b{i}", (4 + rng.random() * 6) * D[i % 3]
+                                + rng.normal(0, 0.05, P))
+        for i in range(500)
+    }  # fmt: skip
+    t0 = time.perf_counter()
+    res = tc.compass(q, lib, focus="synthetic_b0")
+    res.figure()
+    elapsed = time.perf_counter() - t0
+    assert len(res.meta["points"]) == 500
+    assert elapsed < 3.0, f"500 compounds took {elapsed:.1f} s (budget 3 s)"
