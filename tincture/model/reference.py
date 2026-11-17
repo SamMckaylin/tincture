@@ -28,6 +28,8 @@ class ReferenceLibrary:
     citation: str = ""
     source: str = ""
     meta: dict[str, object] = field(default_factory=dict)
+    #: Optional per-reference annotations, e.g. {"moa": ..., "name": ..., "smiles": ...}.
+    annotations: dict[str, dict[str, str]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.features = np.asarray(self.features).astype(str)
@@ -87,6 +89,7 @@ class ReferenceLibrary:
             citation=self.citation,
             source=self.source,
             meta={**self.meta, "left_out": compound_id, "dropped": dropped},
+            annotations={n: self.annotations[n] for n in names if n in self.annotations},
         )
         return out
 
@@ -101,6 +104,7 @@ class ReferenceLibrary:
             citation=self.citation,
             source=self.source,
             meta=dict(self.meta),
+            annotations={n: self.annotations[n] for n in names if n in self.annotations},
         )
 
 
@@ -141,4 +145,30 @@ def library_from_signatures(
         citation=citation,
         source=source,
         meta={"skipped": skipped},
+    )
+
+
+def library_from_compounds(
+    signatures: Mapping[str, np.ndarray],
+    features: np.ndarray,
+    annotations: Mapping[str, Mapping[str, str]],
+    version: str,
+    source: str = "",
+    citation: str = "",
+) -> ReferenceLibrary:
+    """One reference per compound (each its own single member), with annotations such as
+    MoA. Leave-one-out (:meth:`ReferenceLibrary.without`) then removes a query compound from
+    its own library, as the Neighbourhood Card requires."""
+    names = [c for c in signatures if c in annotations]
+    if len(names) < 2:
+        raise TinctureDataError("A compound library needs at least two annotated compounds.")
+    return ReferenceLibrary(
+        names=names,
+        features=np.asarray(features).astype(str),
+        member_ids={c: [c] for c in names},
+        member_signatures={c: np.asarray(signatures[c], float)[None, :] for c in names},
+        version=version,
+        citation=citation,
+        source=source,
+        annotations={c: {k: str(v) for k, v in annotations[c].items()} for c in names},
     )

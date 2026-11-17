@@ -39,8 +39,8 @@ class RemoteFile:
         File name in the cache.
     url
         Source URL.
-    md5, sha256
-        Expected checksum(s); at least one must be given.
+    md5, sha256, sha512
+        Expected checksum(s); at least one must be given (GEO publishes SHA-512).
     size
         Expected size in bytes (checked before hashing; cheap early failure).
     licence
@@ -54,10 +54,11 @@ class RemoteFile:
     sha256: str | None = None
     size: int | None = None
     licence: str = ""
+    sha512: str | None = None
 
     def __post_init__(self) -> None:
-        if not (self.md5 or self.sha256):
-            raise ValueError(f"RemoteFile {self.name!r} needs an md5 or sha256 checksum.")
+        if not (self.md5 or self.sha256 or self.sha512):
+            raise ValueError(f"RemoteFile {self.name!r} needs an md5, sha256 or sha512 checksum.")
 
 
 def data_home() -> Path:
@@ -91,6 +92,8 @@ def verify(f: RemoteFile, path: Path) -> bool:
         return False
     if f.md5 and file_digest(path, "md5") != f.md5:
         return False
+    if f.sha512 and file_digest(path, "sha512") != f.sha512:
+        return False
     return not (f.sha256 and file_digest(path, "sha256") != f.sha256)
 
 
@@ -119,7 +122,8 @@ def fetch(
             return dest
         raise DatasetUnavailable(
             f"{dest} exists but its checksum does not match the registry "
-            f"(expected md5={f.md5}, sha256={f.sha256}). It may be truncated or a "
+            f"(expected md5={f.md5}, sha256={f.sha256}, sha512={f.sha512}). "
+            "It may be truncated or a "
             f"different release. Delete it and re-download from {f.url}."
         )
     if not download:

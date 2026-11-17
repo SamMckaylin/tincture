@@ -17,8 +17,10 @@ from tincture.plots.demo import demo
 from tincture.plots.dose_paths import plot as dose_paths
 from tincture.plots.effect_ladder import plot as effect_ladder
 from tincture.plots.fingerprint import plot as fingerprint
+from tincture.plots.neighbourhood import plot as neighbourhood
 from tincture.plots.plate_atlas import plot as plate_atlas
 from tincture.plots.retrievability import plot as retrievability
+from tincture.plots.selectivity import plot as selectivity
 from tincture.plots.window import plot as window
 from tincture.render.mpl import render_mpl
 from tincture.result import PlotResult
@@ -35,9 +37,11 @@ __all__ = [
     "effect_ladder",
     "export",
     "fingerprint",
+    "neighbourhood",
     "plate_atlas",
     "render_mpl",
     "retrievability",
+    "selectivity",
     "theme",
     "window",
 ]

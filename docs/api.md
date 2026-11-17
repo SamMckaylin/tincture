@@ -6,7 +6,7 @@ _Generated from docstrings by `docs/make_api.py` (tincture 0.0.1.dev0)._ Do not 
 import tincture as tc
 ```
 
-Top-level names: `tc.PlotResult`, `tc.TinctureDataError`, `tc.TinctureError`, `tc.TinctureWarning`, `tc.__version__`, `tc.compass`, `tc.demo`, `tc.dose_paths`, `tc.effect_ladder`, `tc.export`, `tc.fingerprint`, `tc.plate_atlas`, `tc.render_mpl`, `tc.retrievability`, `tc.theme`, `tc.window`.
+Top-level names: `tc.PlotResult`, `tc.TinctureDataError`, `tc.TinctureError`, `tc.TinctureWarning`, `tc.__version__`, `tc.compass`, `tc.demo`, `tc.dose_paths`, `tc.effect_ladder`, `tc.export`, `tc.fingerprint`, `tc.neighbourhood`, `tc.plate_atlas`, `tc.render_mpl`, `tc.retrievability`, `tc.selectivity`, `tc.theme`, `tc.window`.
 
 ## Plots
 
@@ -286,7 +286,7 @@ Download-and-cache helpers with checksums.
 A registered file is not cached and could not be downloaded.
 
 
-#### class `RemoteFile(dataset: str, name: str, url: str, md5: str | None = None, sha256: str | None = None, size: int | None = None, licence: str = '')`
+#### class `RemoteFile(dataset: str, name: str, url: str, md5: str | None = None, sha256: str | None = None, size: int | None = None, licence: str = '', sha512: str | None = None)`
 
 One downloadable file.
 
@@ -298,8 +298,8 @@ name
     File name in the cache.
 url
     Source URL.
-md5, sha256
-    Expected checksum(s); at least one must be given.
+md5, sha256, sha512
+    Expected checksum(s); at least one must be given (GEO publishes SHA-512).
 size
     Expected size in bytes (checked before hashing; cheap early failure).
 licence
@@ -399,6 +399,12 @@ Build a library from per-compound signatures and class membership.
 
 ``signatures`` maps compound id → effect vector (aligned to ``features``); classes with
 fewer than ``min_members`` available members are skipped (recorded in ``meta``).
+
+#### `library_from_compounds(signatures: Mapping[str, np.ndarray], features: np.ndarray, annotations: Mapping[str, Mapping[str, str]], version: str, source: str = '', citation: str = '') -> ReferenceLibrary`
+
+One reference per compound (each its own single member), with annotations such as
+MoA. Leave-one-out (:meth:`ReferenceLibrary.without`) then removes a query compound from
+its own library, as the Neighbourhood Card requires.
 
 ### `tincture.model.dose_response`
 

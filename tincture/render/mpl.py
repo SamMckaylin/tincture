@@ -25,6 +25,7 @@ from tincture.spec import (
     ContourMark,
     EllipseMark,
     HeatmapMark,
+    ImageMark,
     IntervalMark,
     LineMark,
     NoticeMark,
@@ -646,6 +647,9 @@ def _draw_panel(fig: Figure, ax: Axes, panel: Panel) -> None:
             _draw_text(ax, m)
         elif isinstance(m, NoticeMark):
             _draw_notice(ax, m)
+        elif isinstance(m, ImageMark):
+            ax.imshow(np.asarray(m.image), extent=m.extent, zorder=m.z, interpolation="lanczos",
+                      aspect="auto")  # fmt: skip
         else:  # pragma: no cover
             raise TinctureSpecError(f"Unknown mark type {type(m).__name__}.")
 

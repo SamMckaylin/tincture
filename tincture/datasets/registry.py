@@ -119,3 +119,36 @@ GDSC2_RAW = RemoteFile(
     licence="GDSC terms: research use, no redistribution (could not be re-checked; see "
     "docs/data_status.md)",
 )
+
+
+# --- D9: LINCS L1000 phase II (GEO GSE70138), checksums from GSE70138_SHA512SUMS.txt.gz ---
+_LINCS = "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE70nnn/GSE70138/suppl/"
+_LINCS_LICENCE = "GEO public data; cite Subramanian et al., Cell 2017 (CMap / LINCS L1000)"
+
+
+def _lincs(name: str, sha512: str) -> RemoteFile:
+    return RemoteFile("lincs", name, _LINCS + name, sha512=sha512, licence=_LINCS_LICENCE)
+
+
+LINCS_GSE70138 = {
+    "level5": _lincs(
+        "GSE70138_Broad_LINCS_Level5_COMPZ_n118050x12328_2017-03-06.gctx.gz",
+        "9d078903d3d028f37b0bae584c1afe48f5bab0082e61f6e542de471674c78946cff710132b8e95beb997a39dc2dd6442fdda0fbb1cc9b2399ef21cf636975c9f",
+    ),
+    "sig_info": _lincs(
+        "GSE70138_Broad_LINCS_sig_info_2017-03-06.txt.gz",
+        "8d16dfc3a8fdfba572797f2519f9bc96b687c3666c78d386b53fc997164dd2a8ab5953c0b323795ec7f62de5de4ddbd0285e79f8be48487156479dc8ee0128c9",
+    ),
+    "sig_metrics": _lincs(
+        "GSE70138_Broad_LINCS_sig_metrics_2017-03-06.txt.gz",
+        "b9a79bc8835aa19bb46a824e1458d15ecc6d5ceff16afee1f02e759f495a7c2e8b4c99761e1d00ca8db10fc4789a6ba65958f9aabf3daa557681fd542a5ab89a",
+    ),
+    "pert_info": _lincs(
+        "GSE70138_Broad_LINCS_pert_info_2017-03-06.txt.gz",
+        "b0df8aaa5653c581bd69a3dddd6eaa64e6296a70f40f50b1b80a2854abbee17a9d66e874dc00657c045be738df521f2e673115c1aae9f5972e820e88f0032ddc",
+    ),
+    "gene_info": _lincs(
+        "GSE70138_Broad_LINCS_gene_info_2017-03-06.txt.gz",
+        "b2df105ebf7a69799b23130d03b7da769bfd6ab83fd69cbb419c91c78ae069ae3e5d474e09d36e3ac4271f3b7fc56b24caaf1ac5ece9554ea7738b15535dfefd",
+    ),
+}

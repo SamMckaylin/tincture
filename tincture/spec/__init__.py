@@ -331,8 +331,24 @@ class NoticeMark(Mark):
     z: float = 6.0
 
 
+@dataclass
+class ImageMark(Mark):
+    """A raster image (e.g. a chemical structure drawing) placed at ``extent`` in data
+    coordinates. ``image``: (H, W, 3|4) array, uint8 or float in [0, 1]."""
+
+    image: ArrayLike = field(default_factory=lambda: np.zeros((1, 1, 4)))
+    extent: tuple[float, float, float, float] = (0.0, 1.0, 0.0, 1.0)
+    z: float = 1.0
+
+    def validate(self) -> None:
+        a = np.asarray(self.image)
+        if a.ndim != 3 or a.shape[2] not in (3, 4):
+            raise TinctureSpecError("ImageMark.image must be (H, W, 3|4).")
+
+
 MarkT = (
-    PointMark
+    ImageMark
+    | PointMark
     | LineMark
     | IntervalMark
     | BandMark
@@ -482,6 +498,7 @@ __all__ = [
     "ContourMark",
     "EllipseMark",
     "HeatmapMark",
+    "ImageMark",
     "IntervalMark",
     "LegendSpec",
     "LineMark",
