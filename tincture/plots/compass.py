@@ -51,6 +51,11 @@ from tincture.stats.projection import (
 )
 
 CORRELATED = 0.8
+MIN_COHERENCE = 0.2
+#: Two-member classes must agree more strongly to be trusted as a spoke.
+MIN_COHERENCE_PAIR = 0.4
+#: Novelty is judged only for compounds with at least this share of the rim magnitude.
+NOVELTY_MIN_MAGNITUDE = 0.25
 POORLY_EXPLAINED = 0.5
 MAX_SPOKES = 8
 
@@ -86,14 +91,44 @@ class CompassPoint:
 def select_spokes(
     lib: ReferenceLibrary, max_spokes: int = MAX_SPOKES
 ) -> tuple[ReferenceLibrary, list[str]]:
-    """Keep the ``max_spokes`` strongest references (by class-mean magnitude), then order
-    them by similarity. Returns the ordered library and the names left out."""
-    mags = np.linalg.norm(lib.matrix, axis=1)
-    keep = np.argsort(-mags)[:max_spokes]
+    """Keep the ``max_spokes`` most *coherent* references, then order them by similarity.
+
+    Coherence = mean pairwise cosine between a class's member signatures (do its members
+    agree?) × √(members). Magnitude alone would favour classes with one or two very strong
+    compounds and drop well-defined classes with moderate effects (e.g. Aurora kinase
+    inhibitors in sci-Plex), which would then wrongly look "novel". Classes whose members do
+    not agree are never used: mean cosine ≥ ``MIN_COHERENCE`` with ≥ 3 members, or
+    ≥ ``MIN_COHERENCE_PAIR`` for a two-member class.
+    Returns the ordered library and the names left out.
+    """
+    scores = np.array([class_coherence(lib, n) for n in lib.names])
+    ok = np.where(
+        scores[:, 1] >= 3, scores[:, 0] >= MIN_COHERENCE, scores[:, 0] >= MIN_COHERENCE_PAIR
+    )
+    rank = np.argsort(-(scores[:, 0] * np.sqrt(scores[:, 1])))
+    keep = [int(i) for i in rank if ok[i]][:max_spokes]
+    if len(keep) < 2:
+        raise TinctureDataError(
+            "Fewer than two reference classes have members that agree with each other.",
+            fix="Check the class annotations or lower MIN_COHERENCE.",
+        )
     sub = lib.reorder(sorted(keep))
     order = seriate(sub.similarity())
     left_out = [lib.names[i] for i in range(len(lib)) if i not in set(keep)]
-    return sub.reorder([int(i) for i in order]), left_out
+    out = sub.reorder([int(i) for i in order])
+    out.meta["coherence"] = {lib.names[i]: float(scores[i, 0]) for i in range(len(lib))}
+    return out, left_out
+
+
+def class_coherence(lib: ReferenceLibrary, name: str) -> tuple[float, int]:
+    """(mean pairwise cosine between members, number of members)."""
+    M = lib.member_signatures[name]
+    n = M.shape[0]
+    if n < 2:
+        return 0.0, n
+    U = M / np.linalg.norm(M, axis=1, keepdims=True)
+    S = U @ U.T
+    return float(S[np.triu_indices(n, 1)].mean()), n
 
 
 def _nice_step(rmax: float) -> float:
@@ -110,8 +145,17 @@ def short_name(name: str) -> str:
     'Abexinostat'. Names that are only a code are kept."""
     import re
 
-    base = re.sub(r"\s*\(.*?\)", "", name).strip()
-    base = re.sub(r"\s+(2?HCl|HCl|hydrochloride|mesylate|sodium salt)$", "", base, flags=re.I)
+    base = name.strip()
+    salts = (
+        r"2?HCl|hydrochloride|dihydrochloride|mesylate|sodium salt|citrate|maleate|"
+        r"phosphate|sulfate|tosylate|L-\(\+\)-tartaric acid|tartrate"
+    )
+    while True:  # strip trailing "(synonym)" and salt words, in any order
+        new = re.sub(r"\s+\([^()]*\)$", "", base).strip()
+        new = re.sub(rf"\s+({salts})$", "", new, flags=re.I).strip()
+        if new == base:
+            break
+        base = new
     return base or name
 
 
@@ -177,6 +221,84 @@ def compute_points(
     return pts
 
 
+@dataclass
+class _Label:
+    x: float
+    y: float
+    text: str
+    color: str
+    priority: int  # lower = placed first
+    forced: bool = False
+
+
+def place_labels(
+    labels: list[_Label], R: float, occupied: list[tuple[float, float, float, float]] | None = None
+) -> list[TextMark]:
+    """Greedy label placement: try right / left / above / below each point; skip a label
+    that would overlap one already placed (the focus label is always placed)."""
+    boxes = list(occupied or [])
+    h = 0.075 * R
+    out: list[TextMark] = []
+
+    def overlaps(b: tuple[float, float, float, float]) -> bool:
+        x0, y0, x1, y1 = b
+        return any(not (x1 < c0 or x0 > c1 or y1 < d0 or y0 > d1) for c0, d0, c1, d1 in boxes)
+
+    for lab in sorted(labels, key=lambda item: item.priority):
+        w = 0.034 * R * (len(lab.text) + 2)
+        gap = 0.03 * R
+        cands: list[tuple[tuple[float, float, float, float], float, float, str, str]] = [
+            (
+                (lab.x + gap, lab.y - h / 2, lab.x + gap + w, lab.y + h / 2),
+                lab.x + gap,
+                lab.y,
+                "left",
+                "center",
+            ),
+            (
+                (lab.x - gap - w, lab.y - h / 2, lab.x - gap, lab.y + h / 2),
+                lab.x - gap,
+                lab.y,
+                "right",
+                "center",
+            ),
+            (
+                (lab.x - w / 2, lab.y + gap, lab.x + w / 2, lab.y + gap + h),
+                lab.x,
+                lab.y + gap,
+                "center",
+                "bottom",
+            ),
+            (
+                (lab.x - w / 2, lab.y - gap - h, lab.x + w / 2, lab.y - gap),
+                lab.x,
+                lab.y - gap,
+                "center",
+                "top",
+            ),
+        ]
+        chosen = next((c for c in cands if not overlaps(c[0])), None)
+        if chosen is None and lab.forced:
+            chosen = cands[0]
+        if chosen is None:
+            continue
+        box, tx, ty, ha, va = chosen
+        boxes.append(box)
+        out.append(
+            TextMark(
+                x=tx,
+                y=ty,
+                text=lab.text,
+                color=lab.color,
+                ha=ha,  # type: ignore[arg-type]
+                va=va,  # type: ignore[arg-type]
+                categorical=lab.color in ("focus", "novel"),
+                z=5,
+            )
+        )
+    return out
+
+
 def build_spec(
     points: list[CompassPoint],
     lib: ReferenceLibrary,
@@ -188,92 +310,123 @@ def build_spec(
     title: str = "Compass",
     n_boot: int = 200,
     footer: Sequence[str] = (),
+    gate_mode: str = "drop",
 ) -> PlotSpec:
     if not points:
         raise TinctureDataError("No signatures to place on the compass.")
+    if gate_mode not in ("drop", "grey"):
+        raise ValueError("gate_mode must be 'drop' or 'grey'.")
     spoke_labels = spoke_labels or {}
     by_id = {p.compound_id: p for p in points}
     if focus is not None and focus not in by_id:
         raise TinctureDataError(
             f"Focus {focus!r} is not among the signatures.", fix=f"Use one of {sorted(by_id)[:5]} …"
         )
-    rmax_data = max(np.hypot(p.x, p.y) for p in points)
-    step = _nice_step(rmax_data)
-    rings = [step * k for k in range(1, int(np.ceil(rmax_data / step)) + 1)]
+    gated = [p for p in points if p.gated_out and p.compound_id != focus]
+    active = [p for p in points if not p.gated_out or p.compound_id == focus]
+    if not active:
+        raise TinctureDataError(
+            "No compound passed the retrievability gate.",
+            fix="Show them anyway with gate=None, or check the gate.",
+        )
+
+    # --- radial scale: rim at the 95th percentile so one outlier cannot squash the rest
+    mags = np.array([p.projection.magnitude for p in active])
+    r_data = float(np.quantile(mags, 0.95)) if len(mags) > 10 else float(mags.max())
+    r_data = max(r_data, 1e-9)
+    step = _nice_step(r_data)
+    rings = [step * k for k in range(1, int(np.ceil(r_data / step)) + 1)]
     R = rings[-1]
+    clipped = {p.compound_id for p in active if p.projection.magnitude > R}
+
+    def xy(p: CompassPoint) -> tuple[float, float]:
+        if p.compound_id in clipped:
+            f = R / p.projection.magnitude
+            return p.x * f, p.y * f
+        return p.x, p.y
+
     panel = Panel(
         key="compass",
-        x=Scale("linear", visible=False, domain=(-1.55 * R, 1.55 * R)),
-        y=Scale("linear", visible=False, domain=(-1.32 * R, 1.32 * R)),
+        x=Scale("linear", visible=False, domain=(-1.6 * R, 1.6 * R)),
+        y=Scale("linear", visible=False, domain=(-1.36 * R, 1.36 * R)),
         aspect="equal",
         frame=False,
-        title="",
     )
     t = np.linspace(0, 2 * np.pi, 241)
-    # rings (magnitude grid) + their labels along the upward spoke gap
+    # ring labels go in the gap between spokes that holds the fewest compounds
+    gaps = angles - np.pi / len(lib)
+    pt_ang = np.array([np.arctan2(*xy(p)[::-1]) for p in active])
+
+    def crowd(a: float) -> int:
+        d = np.angle(np.exp(1j * (pt_ang - a)))
+        return int(np.sum(np.abs(d) < np.pi / (2 * len(lib))))
+
+    gap_angle = float(min(gaps, key=crowd))
     for i, r in enumerate(rings):
+        last = i == len(rings) - 1
         panel.add(
             LineMark(
                 x=r * np.cos(t),
                 y=r * np.sin(t),
                 color="grid",
-                width=0.9 if i == len(rings) - 1 else 0.6,
-                style="solid" if i == len(rings) - 1 else "dashed",
+                width=0.9 if last else 0.6,
+                style="solid" if last else "dashed",
                 z=0.5,
             )
         )
-        a = np.pi / 2 - np.pi / len(lib)  # between the first two spokes
         panel.add(
             TextMark(
-                x=r * np.cos(a),
-                y=r * np.sin(a),
+                x=r * np.cos(gap_angle),
+                y=r * np.sin(gap_angle),
                 text=f"{r:g}",
                 color="ink_soft",
                 ha="center",
                 va="center",
-                size=None,
                 z=0.6,
             )
         )
-    # outer similarity ring between neighbouring spokes
+
+    # --- outer ring: similarity between neighbouring spokes (guard)
     sim = lib.similarity()
     n = len(lib)
     correlated = []
-    ring_r = 1.1 * R
+    ring_r = 1.09 * R
     for k in range(n):
         j = (k + 1) % n
-        if n < 3 and j == 0:
-            continue
         a0, a1 = angles[k], angles[j]
         if a1 > a0:
             a1 -= 2 * np.pi
         arc = np.linspace(a0, a1, 40)
-        s = float(sim[k, j])
-        strong = s > CORRELATED
+        s_kj = float(sim[k, j])
+        strong = s_kj > CORRELATED
         if strong:
-            correlated.append((lib.names[k], lib.names[j], s))
+            correlated.append((lib.names[k], lib.names[j], s_kj))
         panel.add(
             LineMark(
                 x=ring_r * np.cos(arc),
                 y=ring_r * np.sin(arc),
                 color="ink_soft" if strong else "grid",
-                width=0.4 + 2.2 * max(s, 0),
+                width=0.4 + 2.4 * max(s_kj, 0),
+                style="solid",
                 z=0.4,
             )
         )
         if strong:
             am = (a0 + a1) / 2
+            ca_m = np.cos(am)
             panel.add(
                 TextMark(
-                    x=1.17 * R * np.cos(am),
-                    y=1.17 * R * np.sin(am),
-                    text=f"similar ({s:.2f})",
+                    x=1.15 * R * ca_m,
+                    y=1.15 * R * np.sin(am),
+                    text=f"similar ({s_kj:.2f})",
                     color="ink_soft",
-                    ha="left" if np.cos(am) > 0.2 else ("right" if np.cos(am) < -0.2 else "center"),
+                    ha="left" if ca_m > 0.2 else ("right" if ca_m < -0.2 else "center"),
                     va="center",
                 )
             )
-    # spokes
+
+    # --- spokes
+    spoke_boxes = []
     for k, name in enumerate(lib.names):
         ca, sa = np.cos(angles[k]), np.sin(angles[k])
         panel.add(LineMark(x=[0, R * ca], y=[0, R * sa], color="neutral", width=0.8, z=0.7))
@@ -286,123 +439,108 @@ def build_spec(
         va: Literal["top", "center", "bottom"] = (
             "bottom" if sa > 0.25 else ("top" if sa < -0.25 else "center")
         )
-        lab_r = 1.25 * R if ha == "center" else 1.24 * R
+        lx, ly = 1.22 * R * ca, 1.22 * R * sa
+        text = spoke_labels.get(name, name)
         panel.add(
-            TextMark(
-                x=lab_r * ca,
-                y=lab_r * sa,
-                text=spoke_labels.get(name, name),
-                color="reference",
-                ha=ha,
-                va=va,
-                categorical=True,
-            )
+            TextMark(x=lx, y=ly, text=text, color="reference", ha=ha, va=va, categorical=True)
         )
+        w = 0.034 * R * (len(text) + 1)
+        x0 = lx if ha == "left" else (lx - w if ha == "right" else lx - w / 2)
+        spoke_boxes.append((x0, ly - 0.05 * R, x0 + w, ly + 0.05 * R))
     panel.add(PointMark(x=[0], y=[0], color="ink", size=10, z=3))
-    # compounds
-    gated = [p for p in points if p.gated_out]
-    active = [p for p in points if not p.gated_out]
-    novel = [
-        p
-        for p in active
-        if p.projection.has_signal and p.residual > POORLY_EXPLAINED and p.compound_id != focus
-    ]
-    weak = [p for p in active if not p.projection.has_signal and p.compound_id != focus]
-    plain = [p for p in active if p not in novel and p not in weak and p.compound_id != focus]
-    if gated:
+
+    # --- compounds
+    def judged(p: CompassPoint) -> bool:
+        return p.projection.has_signal and p.projection.magnitude >= NOVELTY_MIN_MAGNITUDE * R
+
+    others = [p for p in active if p.compound_id != focus]
+    weak = [p for p in others if not judged(p)]
+    novel = [p for p in others if judged(p) and p.residual > POORLY_EXPLAINED]
+    plain = [p for p in others if judged(p) and p.residual <= POORLY_EXPLAINED]
+    if gated and gate_mode == "grey":
+        g = [xy(p) for p in gated]
         panel.add(
             PointMark(
-                x=[p.x for p in gated],
-                y=[p.y for p in gated],
+                x=[a for a, _ in g],
+                y=[b for _, b in g],
                 color="neutral",
                 size=8,
                 hollow=True,
                 z=1.5,
             )
         )
-    if weak:
-        panel.add(
-            PointMark(x=[p.x for p in weak], y=[p.y for p in weak], color="neutral", size=8, z=1.8)
-        )
-    if plain:
-        panel.add(
-            PointMark(
-                x=[p.x for p in plain], y=[p.y for p in plain], color="mid_grey", size=14, z=2
+    for group, colour, size, z in ((weak, "neutral", 9, 1.8), (plain, "mid_grey", 16, 2.0)):
+        if group:
+            g = [xy(p) for p in group]
+            panel.add(
+                PointMark(x=[a for a, _ in g], y=[b for _, b in g], color=colour, size=size, z=z)
             )
-        )
-    halo_scale = 0.22 * R
+    halo_scale = 0.12 * R
     for p in novel:
+        px, py = xy(p)
         rr = p.residual * halo_scale
         panel.add(
             EllipseMark(
-                cx=[p.x],
-                cy=[p.y],
+                cx=[px],
+                cy=[py],
                 width=[2 * rr],
                 height=[2 * rr],
                 color="novel",
                 linestyle="dashed",
-                linewidth=0.8,
+                linewidth=0.6,
                 z=2.2,
                 categorical=True,
             )
         )
     if novel:
+        g = [xy(p) for p in novel]
         panel.add(
             PointMark(
-                x=[p.x for p in novel],
-                y=[p.y for p in novel],
+                x=[a for a, _ in g],
+                y=[b for _, b in g],
                 color="novel",
-                size=16,
+                size=18,
                 z=2.5,
                 categorical=True,
             )
         )
-    # labels: focus, novel, and the strongest few others
-    to_label = sorted(plain, key=lambda p: -np.hypot(p.x, p.y))[:label_top]
-    for p in to_label:
-        panel.add(
-            TextMark(x=p.x, y=p.y, text=f"  {p.label}", color="ink_soft", ha="left", va="center")
-        )
-    for p in sorted(novel, key=lambda p: -p.residual)[:label_top]:
-        panel.add(
-            TextMark(
-                x=p.x,
-                y=p.y - p.residual * halo_scale,
-                text=f"{p.label} · poorly explained",
-                color="novel",
-                ha="center",
-                va="top",
-                categorical=True,
-            )
-        )
+
     fp = by_id.get(focus) if focus else None
+    labels: list[_Label] = []
+
+    def name_of(p: CompassPoint) -> str:
+        return f"{p.label} ({p.projection.magnitude:.0f})" if p.compound_id in clipped else p.label
+
     if fp is not None:
-        if fp.ellipse is not None:
-            cx, cy, w, h, ang = fp.ellipse
+        fx, fy = xy(fp)
+        tight = fp.ellipse is not None and max(fp.ellipse[2], fp.ellipse[3]) < 0.04 * R
+        if fp.ellipse is not None and not tight:
+            cx, cy, w_, h_, ang = fp.ellipse
+            if fp.compound_id in clipped:
+                f = R / fp.projection.magnitude
+                cx, cy, w_, h_ = cx * f, cy * f, w_ * f, h_ * f
             panel.add(
                 EllipseMark(
                     cx=[cx],
                     cy=[cy],
-                    width=[w],
-                    height=[h],
+                    width=[w_],
+                    height=[h_],
                     angle=[ang],
                     color="focus",
                     fill=True,
-                    alpha=0.25,
+                    alpha=0.22,
                     linewidth=0.6,
                     z=2.6,
                     categorical=True,
                 )
             )
-        panel.add(
-            LineMark(x=[0, fp.x], y=[0, fp.y], color="focus", style="dashed", width=1.0, z=2.7)
-        )
-        if fp.residual > POORLY_EXPLAINED and fp.projection.has_signal:
+        panel.add(LineMark(x=[0, fx], y=[0, fy], color="focus", style="dashed", width=1.0, z=2.7))
+        if judged(fp) and fp.residual > POORLY_EXPLAINED:
             rr = fp.residual * halo_scale
             panel.add(
                 EllipseMark(
-                    cx=[fp.x],
-                    cy=[fp.y],
+                    cx=[fx],
+                    cy=[fy],
                     width=[2 * rr],
                     height=[2 * rr],
                     color="novel",
@@ -412,22 +550,18 @@ def build_spec(
                     categorical=True,
                 )
             )
-        panel.add(PointMark(x=[fp.x], y=[fp.y], color="focus", size=34, z=4, categorical=True))
-        side: Literal["left", "right"] = "left" if fp.x >= 0 else "right"
-        panel.add(
-            TextMark(
-                x=fp.x,
-                y=fp.y,
-                text=f"  {fp.label}  ",
-                color="focus",
-                ha=side,
-                va="bottom",
-                categorical=True,
-                z=5,
-            )
-        )
+        panel.add(PointMark(x=[fx], y=[fy], color="focus", size=34, z=4, categorical=True))
+        labels.append(_Label(fx, fy, name_of(fp), "focus", 0, forced=True))
+    for i, p in enumerate(sorted(novel, key=lambda q: -(q.residual * q.projection.magnitude))[:3]):
+        px, py = xy(p)
+        labels.append(_Label(px, py, f"{name_of(p)} · poorly explained", "novel", 10 + i))
+    for i, p in enumerate(sorted(plain, key=lambda q: -q.projection.magnitude)[:label_top]):
+        px, py = xy(p)
+        labels.append(_Label(px, py, name_of(p), "ink_soft", 20 + i))
+    for tm in place_labels(labels, R, occupied=spoke_boxes):
+        panel.add(tm)
 
-    # caption
+    # --- caption
     cap = Caption()
     if fp is not None:
         sh = fp.projection.shares
@@ -439,34 +573,42 @@ def build_spec(
             if top_k is not None
             else None,
             w=float(sh[top_k]) if top_k is not None else None,
-            pct_unexplained=fp.residual,
+            pct_unexplained=fp.residual if judged(fp) else None,
             n_refs=len(lib),
         )
-        if fp.concentration < 0.6 and fp.projection.weights.sum() > 0:
+        if fp.ellipse is not None and max(fp.ellipse[2], fp.ellipse[3]) < 0.04 * R:
+            cap.add("Its position is precise: the 95% region is smaller than the marker.")
+        if not judged(fp):
+            cap.weak(
+                f"{fp.label}'s signal is too weak (noise-corrected magnitude "
+                f"{fp.projection.magnitude:.0f}) to say how much of it the references explain."
+            )
+        elif fp.concentration < 0.6 and fp.projection.weights.sum() > 0:
             cap.add(
                 "Its weights are spread across distant references (concentration {c:.2f}), so its "
                 "direction is a mixture, not a single mechanism.",
                 c=fp.concentration,
             )
-    if fp is not None and not fp.projection.has_signal:
-        cap.weak(
-            f"{fp.label} shows no clear signal (z = {fp.projection.signal_z:.1f}); its "
-            "position and residual are not interpretable."
-        )
     cap.add(
-        "{n} compounds shown; distance from centre = noise-corrected signature magnitude "
-        "(log-fold changes vs vehicle). {k} with a clear signal are poorly explained by the "
-        "references (residual > {thr}); {w} are too weak to judge (light grey).",
+        "{n} compounds; distance from centre = noise-corrected signature magnitude (log-fold "
+        "changes vs vehicle). {k} with enough signal are poorly explained by the references "
+        "(residual > {thr}, purple); {w} are too weak to judge (light grey).",
         n=len(active),
-        k=len(novel)
-        + int(fp is not None and fp.projection.has_signal and fp.residual > POORLY_EXPLAINED),
+        k=len(novel),
         thr=POORLY_EXPLAINED,
         w=len(weak),
     )
+    if clipped:
+        cap.add(
+            "{c} compound(s) beyond the outer ring ({R:g}) are drawn on it, with their magnitude "
+            "in brackets.",
+            c=len(clipped),
+            R=R,
+        )
     for ref_a, ref_b, cos_ab in correlated:
         cap.weak(
-            f"the {spoke_labels.get(ref_a, ref_a)} and {spoke_labels.get(ref_b, ref_b)} "
-            f"references are similar (cosine {cos_ab:.2f}): these spokes are not independent."
+            f"the {spoke_labels.get(ref_a, ref_a)} and {spoke_labels.get(ref_b, ref_b)} references "
+            f"are similar (cosine {cos_ab:.2f}): these spokes are not independent."
         )
     if correlated:
         panel.add(
@@ -477,14 +619,13 @@ def build_spec(
             )
         )
     if gated:
-        cap.weak(
-            f"{len(gated)} compound(s) failed the retrievability gate and are drawn as hollow grey."
-        )
+        verb = "are not shown" if gate_mode == "drop" else "are drawn as hollow grey"
+        cap.weak(f"{len(gated)} compound(s) failed the retrievability gate and {verb}.")
     meth = Methods().use("compass", n_refs=len(lib), n_boot=n_boot)
-    feet = [f"References: {lib.label()} ({len(lib)} mechanism classes; class means)"]
+    feet = [f"References: {lib.label()} ({len(lib)} mechanism classes)"]
     if left_out:
         feet.append(
-            "Weaker classes not used as spokes: "
+            "Classes not used as spokes (members disagree, or too few): "
             + ", ".join(spoke_labels.get(x, x) for x in left_out)
         )
     feet += list(footer)
@@ -496,13 +637,17 @@ def build_spec(
         methods=meth.render(),
         footer=feet,
         warnings=list(cap.notes),
-        aspect=0.8,
+        aspect=0.82,
         meta={
             "points": points,
             "correlated": correlated,
             "rings": rings,
             "spokes": list(lib.names),
             "angles": angles,
+            "clipped": sorted(clipped),
+            "novel": [p.compound_id for p in novel],
+            "weak": [p.compound_id for p in weak],
+            "rim": R,
         },
     ).validate()
 
@@ -557,6 +702,7 @@ def plot(
     n_boot: int = 200,
     title: str = "Compass",
     footer: Sequence[str] = (),
+    gate_mode: str = "drop",
 ) -> PlotResult:
     """Compass plot.
 
@@ -569,7 +715,21 @@ def plot(
         signatures, lib, angles, gate, ellipses_for=[focus] if focus else [], n_boot=n_boot
     )
     spec = build_spec(
-        pts, lib, angles, focus, label_top, spoke_labels, left_out, title, n_boot, footer
+        pts,
+        lib,
+        angles,
+        focus,
+        label_top,
+        spoke_labels,
+        left_out,
+        title,
+        n_boot,
+        footer,
+        gate_mode,
     )
-    classic = build_classic("compass", signatures=signatures, features=lib.features, focus=focus)
+    classic = (
+        build_classic("compass", signatures=signatures, features=lib.features, focus=focus)
+        if len(signatures) >= 3
+        else None
+    )
     return PlotResult(spec=spec, classic=classic)
