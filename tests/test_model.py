@@ -301,6 +301,13 @@ class TestPlates:
         assert np.isnan(m[0, :10]).all() and m.shape == (32, 48)  # absent wells stay NaN
         assert pt.well_name().iloc[0] == "A1"
 
+    def test_relative_to_with_categorical_plates(self):
+        pt = self._plate()
+        pt.data["plate"] = pt.data["plate"].astype("category")
+        pt.data.loc[pt.data["row"] == 0, "value"] = 2.0
+        rel = pt.relative_to(pt.data["row"] > 0)
+        assert rel[pt.data["row"] == 0].eq(2.0).all() and rel[pt.data["row"] > 0].eq(1.0).all()
+
     def test_validation(self):
         pt = self._plate()
         with pytest.raises(TinctureDataError, match="duplicated"):

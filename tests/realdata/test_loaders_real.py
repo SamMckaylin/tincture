@@ -88,7 +88,7 @@ def test_gdsc_round_trip():
     d = pt.data
     blanks = d[d["well_type"] == "blank"]
     assert (blanks["col"] == 0).all()  # verified row-major layout: blanks in column 1
-    rel = d["value"] / d["plate"].map(d[d["tag"] == "NC-1"].groupby("plate")["value"].median())
+    rel = pt.relative_to(d["tag"] == "NC-1")
     assert rel[d["well_type"] == "blank"].median() < 0.1
     assert rel[d["well_type"] == "pos_ctrl"].median() < 0.4
     assert d["dose"].max() < 1e-2  # molar

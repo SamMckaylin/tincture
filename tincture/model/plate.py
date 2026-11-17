@@ -52,6 +52,9 @@ class PlateTable:
     ``data`` columns: ``plate``, ``row``, ``col`` (0-based), ``well_type`` (one of
     :data:`tincture.model.measurements.WELL_TYPES`), ``value``; optional ``compound_id``,
     ``dose`` (molar), ``cell_line``, ``tag`` (source-specific label), ``plate_order``.
+
+    Large loaders (GDSC: 13.5 M wells) store text columns as pandas categoricals to save
+    memory; use :meth:`relative_to` rather than ``.map`` on them for per-plate maths.
     """
 
     data: pd.DataFrame
@@ -114,6 +117,14 @@ class PlateTable:
         m = np.full((nr, nc), np.nan)
         m[d["row"].to_numpy(), d["col"].to_numpy()] = d["value"].to_numpy(dtype=float)
         return m
+
+    def relative_to(self, mask: np.ndarray | pd.Series) -> pd.Series:
+        """Each well's value divided by its plate's median over the wells in ``mask``
+        (e.g. negative controls). Works with categorical plate columns."""
+        m = np.asarray(mask, dtype=bool)
+        plate = self.data["plate"].astype(str)
+        ref = self.data.loc[m, "value"].groupby(plate[m]).median()
+        return self.data["value"].astype(float) / plate.map(ref).astype(float)
 
     def well_name(self) -> pd.Series:
         return self.data["row"].map(row_label) + (self.data["col"] + 1).astype(str)

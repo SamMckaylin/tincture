@@ -28,7 +28,7 @@
   - above 1,000 plates the per-plate panels switch to a binned median and 5–95% band (every failing plate still drawn); at 16k plates the raw points were an unreadable solid block;
   - classic plain-heatmap fallback.
 
-**Tests:** 218 unit, guard and visual tests, plus 7 opt-in real-data tests. New image baselines for Retrievability and Plate Atlas, colour-blind-checked.
+**Tests:** 219 unit, guard and visual tests, plus 7 opt-in real-data tests, all passing. New image baselines for Retrievability and Plate Atlas, colour-blind-checked.
 
 ## Acceptance criteria
 
@@ -66,7 +66,8 @@ Pathway check: abexinostat 1 µM in A549 gives Hallmark E2F targets −18 and G2
 3. **GDSC edge effect needed a layout-aware definition.** NC-1 controls are never on the edge, and some plates leave the outer ring unseeded (≈ 0 signal). Measuring the outermost ring blindly gave ratios near 0.02. The edge is now the outermost *seeded* ring, and the basis is stated in the caption and footer.
 4. **"Drift" in raw control intensity was confounded with cell line**, because consecutive plates are different lines with different brightness. Drift is now measured relative to plates of the same cell line.
 5. **Out of memory** on the first full CS3 run (15 GB box). Fixed with categoricals and integer keys; the full run now peaks at about 10.7 GB. Still heavy, so noted for future work (streaming per-plate QC).
-6. **A checkpoint commit was pushed with lint and format errors**, because my check chain piped through `tail`, which hid failures. Fixed in the next commit; checks now run with `pipefail`.
+6. **The categorical GDSC table broke a real-data test.** `.map()` on a categorical column returns a categorical, so per-plate division failed. CI can't see this (no data there); the opt-in real-data suite caught it. I added `PlateTable.relative_to()` and documented the categoricals.
+7. **A checkpoint commit was pushed with lint and format errors**, because my check chain piped through `tail`, which hid failures. Fixed in the next commit; checks now run with `pipefail`.
 
 ## Decisions taken (delegated by you)
 
