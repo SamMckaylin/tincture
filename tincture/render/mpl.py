@@ -42,6 +42,9 @@ from tincture.theme.style import theme_context
 
 _LS = {"solid": "-", "dashed": "--", "dotted": ":", "dashdot": "-."}
 
+#: Soft background behind reference-line labels so they stay legible over data.
+_LABEL_BOX = {"boxstyle": "round,pad=0.15", "fc": PAPER, "ec": "none", "alpha": 0.85}
+
 #: Gap (in row units) inserted after rows listed in ``HeatmapMark.row_gap_after``.
 ROW_GAP = 0.6
 
@@ -331,6 +334,8 @@ def _draw_refline(ax: Axes, m: RefLineMark, handles: list) -> None:
                 va="top",
                 fontsize=fs,
                 color=c,
+                bbox=_LABEL_BOX,
+                zorder=m.z + 2,
             )
         else:
             ax.annotate(
@@ -343,6 +348,8 @@ def _draw_refline(ax: Axes, m: RefLineMark, handles: list) -> None:
                 va="bottom",
                 fontsize=fs,
                 color=c,
+                bbox=_LABEL_BOX,
+                zorder=m.z + 2,
             )
     if m.legend:
         handles.append(Line2D([], [], color=c, ls=_LS[m.style], lw=m.width, label=m.legend))
@@ -410,7 +417,15 @@ def _apply_scale(ax: Axes, s: Scale, which: str, cat_pos: np.ndarray | None) -> 
         set_ticks(pos, s.categories)
         axis.set_tick_params(length=0)
     elif s.ticks is not None:
+        # Explicit ticks must not stretch the view: keep data limits unless a domain is set.
+        lim = ax.get_xlim() if which == "x" else ax.get_ylim()
         set_ticks(s.ticks, s.tick_labels if s.tick_labels is not None else None)
+        if s.domain is None:
+            set_lim(*lim)
+        if s.kind in ("log", "symlog"):
+            from matplotlib.ticker import NullFormatter
+
+            axis.set_minor_formatter(NullFormatter())
     if s.domain is not None:
         set_lim(*s.domain)
     if s.invert:

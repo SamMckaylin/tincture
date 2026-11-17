@@ -157,3 +157,18 @@ def test_prism_compound_core():
 )
 def test_clean_smiles(s, out):
     assert clean_smiles(s) == out
+
+
+def test_gdsc_categorical_chunks_merge():
+    from tincture.io.gdsc import _CATEGORICAL, _concat_categorical
+
+    def chunk(tags, line):
+        d = pd.DataFrame({"SCAN_ID": [1] * len(tags), "TAG": tags, "SCAN_DATE": "2020-01-01",
+                          "CELL_LINE_NAME": line, "SANGER_MODEL_ID": "SIDM1"})
+        for c in _CATEGORICAL:
+            d[c] = d[c].astype("category")
+        return d
+
+    out = _concat_categorical([chunk(["B", "NC-1"], "A"), chunk(["L1-D1-S"], "Z")])
+    assert out["TAG"].dtype == "category" and out["TAG"].tolist() == ["B", "NC-1", "L1-D1-S"]
+    assert out["CELL_LINE_NAME"].tolist() == ["A", "A", "Z"]

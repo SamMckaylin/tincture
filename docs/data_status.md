@@ -11,6 +11,7 @@ Ground rules: no data is committed (`data/` is git-ignored), no data is invented
 | 2026-11-16 | figshare downloads redirect to a Cloudflare R2 storage host, and this works through the proxy. |
 | 2026-11-16 | **cancerrxgene.org is retired**: every page returns HTTP 410 with a notice that GDSC data now live in the Sanger **Cell Model Passports** (cellmodelpassports.sanger.ac.uk/downloads) and DepMap Miner. Those hosts are *not* allowed, so the current GDSC licence page could not be read. The release files on `cog.sanger.ac.uk` are still served. |
 | 2026-11-17 | `cellmodelpassports.sanger.ac.uk` added to the environment (user-approved) to read the GDSC licence. |
+| 2026-11-17 | `static.omnipathdb.org`, `omnipathdb.org` added (gene sets for pathway scores). |
 | 2026-11-16 | Nature, Cell and ACS author-guideline sites unreachable; journal presets are unverified (see `docs/design/journal_presets.md`). |
 
 ## D1: sci-Plex (Srivatsan et al., Science 2020), GEO GSE139944
@@ -75,6 +76,17 @@ Cached files (MD5 from the figshare API, verified): readme, cell-line-info, pool
 - **Duplicate annotations:** 12,946 of 16,354 plates list some positions **twice**, with the same intensity: once as `DMSO` (drug id 4000, no concentration) and once as the drug (`L…`/`PC…`). So `DMSO` is a **solvent annotation**, not a vehicle-control label, in those wells. The loader collapses them to the drug annotation (`solvent_paired=True`). About 2.1 M **standalone** `DMSO` rows read median 0.89 of NC-1, between negative controls (1.00) and library wells (0.95). Their role is ambiguous, so they are typed `empty` and **never used as controls**; Z′ uses NC-1 vs B only. `T#-S` wells also appear paired (5,397 rows in a 3 M-row sample).
 - **Loader cost:** filtering by plate or cell line scans the whole 2.1 GB CSV (about 15 s); the first N plates load in about 5 s.
 - **Licence (checked 2026-11-17 via Cell Model Passports, where GDSC now lives).** The site states: "All data in the Cell Model Passports is publicly available and individual users are free to use the API for **non-commercial use**" and "**Commercial use** of the Cell Model Passports API and/or data **is not permitted without prior consent**" (contact depmap@sanger.ac.uk). The full "Terms & Conditions" page is on depmap.sanger.ac.uk (not allowed), so **redistribution terms remain unconfirmed**. Practice: raw and derived per-plate GDSC data stay local and are never committed or published; case-study figures are for internal research use. The Passports downloads page lists the same release (`GDSC2_public_raw_data_27Oct23`) under `cmp.cog.sanger.ac.uk`, plus `screened_compounds_rel_8.5_inchi.csv` (InChI per GDSC compound, useful for cross-dataset ID mapping in M5/M6).
+
+## Gene-set libraries (pathway scores, M2)
+
+Fetched through decoupler 2.3.1 from OmniPath (`static.omnipathdb.org`, `omnipathdb.org`, allowed 2026-11-17). The content can change between fetches, so the first fetch is cached at `data/raw/genesets/` with a JSON sidecar, and later loads verify it. The version string is printed on figures.
+
+| Library | Sets | Rows | Fetched | SHA-256 |
+|---|---|---|---|---|
+| MSigDB Hallmark (human) | 50 | 7,318 | 2026-11-17 | `41042764841a61b2208d79cbf98dcc18460a32f79712851dfa2952d25a9dccb3` |
+| PROGENy top-500 (human, signed weights) | 14 | 6,463 | 2026-11-17 | `bb3461bdd10b4245ba19ad7db5333a11c67abce26b5453044f30e268e47a8d50` |
+
+Gene identifiers are symbols. sci-Plex features are Ensembl ids and are mapped through `gene_symbol` (first occurrence wins for duplicated symbols). Our ULM matches `decoupler.mt.ulm` to within 6e-13 on real signatures.
 
 ## D4–D12
 

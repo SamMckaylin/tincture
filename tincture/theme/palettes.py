@@ -8,7 +8,10 @@ whole package: terracotta always means "the thing this figure is about".
 from __future__ import annotations
 
 import re
-from typing import Final
+from typing import TYPE_CHECKING, Final
+
+if TYPE_CHECKING:
+    import numpy as np
 
 from matplotlib.colors import BoundaryNorm, Colormap, ListedColormap, to_rgba
 
@@ -169,3 +172,20 @@ def resolve_cmap(name: str) -> Colormap | str:
             f"{sorted(ALLOWED_SEQUENTIAL)} or 'diverging'."
         )
     return name
+
+
+def sample_cmap(name: str, values: np.ndarray, vmin: float, vmax: float) -> list[str]:
+    """Hex colours for ``values`` on an allowed colormap (NaN -> neutral)."""
+    import numpy as np
+    from matplotlib import colormaps
+    from matplotlib.colors import to_hex
+
+    cmap = resolve_cmap(name)
+    cm = colormaps[cmap] if isinstance(cmap, str) else cmap
+    v = np.asarray(values, dtype=float)
+    span = vmax - vmin if vmax > vmin else 1.0
+    x = np.clip((v - vmin) / span, 0, 1)
+    return [
+        NEUTRAL if not np.isfinite(val) else to_hex(cm(float(xi)))
+        for val, xi in zip(v, x, strict=True)
+    ]

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### M2: statistics, Retrievability, Plate Atlas (2026-11-17)
+- `stats.ebayes`: limma-style variance moderation (`fit_f_dist`, `squeeze_var`, with an optional trend).
+- `stats.signatures`: logCPM signatures vs same-stratum vehicle, moderated t and normal-prior shrinkage; `PerturbationSet.signatures()`; label-free `replicate_profiles`.
+- `stats.pathways`: ULM pathway scores (matches decoupler to 1e-12) and Jaccard de-duplication; gene sets (Hallmark, PROGENy) cached with checksums.
+- `stats.map_retrieval`: AP, mAP, a label-permutation null (exact when feasible) and the copairs "copied" null (validated against a copairs 0.6.0 golden file), BH q-values, CAT curve.
+- `tc.retrievability`: gate plot with guards; flags designs that cannot reach significance; gate mask stored for other plots.
+- `stats.zprime` and `tc.plate_atlas`: Z′, layout-aware edge effect, drift within cell line; density view for 1536-well plates.
+- Palette: colour-blind-safe muted purple/green; GDSC licence terms recorded.
+- Case studies: CS3 (GDSC2 plate QC) and the sci-Plex Retrievability validation.
+
 ### M1: data model and loaders (2026-11-16)
 - `tincture.model`: `validate_long`, `PerturbationSet` (AnnData), `Signature`, `FourPL`, `DoseResponse`, `DoseResponseSet`, `PlateTable`; `well_type` gains `blank`.
 - `tincture.datasets`: checksum-verified download cache and a registry of 13 pinned files.

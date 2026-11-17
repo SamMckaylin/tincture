@@ -162,6 +162,16 @@ class PerturbationSet:
                 ad_sub = ad_sub[:, list(f)]
         return PerturbationSet(ad_sub.copy(), source=self.source)
 
+    # ------------------------------------------------------------------ statistics
+    def signatures(self, **kwargs: Any) -> list[Any]:
+        """Signatures vs same-stratum vehicle.
+
+        See :func:`tincture.stats.signatures.compute_signatures`.
+        """
+        from tincture.stats.signatures import compute_signatures
+
+        return compute_signatures(self, **kwargs)
+
     # ------------------------------------------------------------------ aggregation
     def pseudobulk(self, by: Sequence[str], min_samples: int = 1) -> PerturbationSet:
         """Sum ``X`` over samples sharing the values of ``by`` (e.g. well or replicate).

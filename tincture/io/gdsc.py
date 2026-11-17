@@ -70,6 +70,18 @@ _TAG_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^UN-USED$"), "empty"),
 ]
 
+_DTYPES = {
+    "BARCODE": "int32",
+    "SCAN_ID": "int32",
+    "POSITION": "int16",
+    "DRUGSET_ID": "int32",
+    "SEEDING_DENSITY": "int32",
+    "DRUG_ID": "float32",
+    "CONC": "float64",
+    "INTENSITY": "float32",
+}
+_CATEGORICAL = ("SCAN_DATE", "CELL_LINE_NAME", "SANGER_MODEL_ID", "TAG")
+
 _USECOLS = [
     "BARCODE",
     "SCAN_ID",
@@ -108,14 +120,17 @@ def tag_to_well_type(tags: pd.Series) -> pd.Series:
 def collapse_duplicate_wells(raw: pd.DataFrame) -> pd.DataFrame:
     """Collapse wells listed twice (DMSO solvent row + drug row) into one row."""
     key = ["SCAN_ID", "POSITION"]
-    n = raw.groupby(key)["TAG"].transform("size")
-    is_dmso = raw["TAG"].astype(str) == "DMSO"
-    paired_keys = raw.loc[is_dmso & (n > 1), key]
-    out = raw[~(is_dmso & (n > 1))].copy()
-    out["solvent_paired"] = pd.MultiIndex.from_frame(out[key]).isin(
-        pd.MultiIndex.from_frame(paired_keys)
-    )
-    n2 = out.groupby(key)["TAG"].transform("size")
+    k = raw["SCAN_ID"].to_numpy(np.int64) * 4096 + raw["POSITION"].to_numpy(np.int64)
+    uniq, inv, cnt = np.unique(k, return_inverse=True, return_counts=True)
+    n = cnt[inv]
+    is_dmso = (raw["TAG"].astype(str) == "DMSO").to_numpy()
+    drop = is_dmso & (n > 1)
+    paired = np.unique(k[drop])
+    out = raw.loc[~drop].copy()
+    k_out = k[~drop]
+    out["solvent_paired"] = np.isin(k_out, paired)
+    _, inv2, cnt2 = np.unique(k_out, return_inverse=True, return_counts=True)
+    n2 = pd.Series(cnt2[inv2], index=out.index)
     if (n2 > 1).any():
         multi = out[n2 > 1]
         same = multi.groupby(key)["INTENSITY"].nunique()
@@ -124,7 +139,8 @@ def collapse_duplicate_wells(raw: pd.DataFrame) -> pd.DataFrame:
                 f"{int((same > 1).sum())} GDSC wells are listed twice with different intensities.",
                 fix="Inspect these wells; the release may be inconsistent.",
             )
-        agg = multi.groupby(key, as_index=False).agg(
+        multi = multi.assign(TAG=multi["TAG"].astype(str))
+        agg = multi.groupby(key, as_index=False, observed=True).agg(
             {
                 **{c: "first" for c in multi.columns if c not in key},
                 "TAG": lambda s: "+".join(map(str, s)),
@@ -132,7 +148,9 @@ def collapse_duplicate_wells(raw: pd.DataFrame) -> pd.DataFrame:
             }
         )
         agg["CONC"] = np.nan
-        out = pd.concat([out[n2 == 1], agg], ignore_index=True)
+        single = out[n2 == 1].assign(TAG=lambda d: d["TAG"].astype(str))
+        out = pd.concat([single, agg], ignore_index=True)
+        out["TAG"] = out["TAG"].astype("category")
     return out.reset_index(drop=True)
 
 
@@ -152,7 +170,9 @@ def read_raw(
         parts: list[pd.DataFrame] = []
         seen: list[int] = []
         with z.open(names[0]) as fh:
-            for ch in pd.read_csv(fh, usecols=_USECOLS, chunksize=chunksize, low_memory=False):
+            for ch in pd.read_csv(
+                fh, usecols=_USECOLS, dtype=_DTYPES, chunksize=chunksize, low_memory=False
+            ):
                 if plates is not None:
                     ch = ch[ch["SCAN_ID"].isin(plates)]
                 if cell_lines is not None:
@@ -164,6 +184,8 @@ def read_raw(
                     allowed = set(seen[:max_plates])
                     ch = ch[ch["SCAN_ID"].isin(allowed)]
                 if len(ch):
+                    for c in _CATEGORICAL:
+                        ch[c] = ch[c].astype("category")
                     parts.append(ch)
                 if max_plates is not None and len(seen) > max_plates:
                     break
@@ -171,7 +193,18 @@ def read_raw(
         raise TinctureDataError(
             "No GDSC rows match the filters.", fix="Check plate ids / cell-line names."
         )
-    return pd.concat(parts, ignore_index=True)
+    return _concat_categorical(parts)
+
+
+def _concat_categorical(parts: list[pd.DataFrame]) -> pd.DataFrame:
+    """Concatenate chunks keeping categorical columns categorical (memory: 15 M rows)."""
+    from pandas.api.types import union_categoricals
+
+    cats = {c: union_categoricals([p[c] for p in parts], ignore_order=True) for c in _CATEGORICAL}
+    out = pd.concat([p.drop(columns=list(_CATEGORICAL)) for p in parts], ignore_index=True)
+    for c, v in cats.items():
+        out[c] = v
+    return out
 
 
 def load_gdsc2_plates(
@@ -189,37 +222,44 @@ def load_gdsc2_plates(
     raw = collapse_duplicate_wells(
         read_raw(path, plates=plates, cell_lines=cell_lines, max_plates=max_plates)
     )
-    counts = raw.groupby("SCAN_ID")["POSITION"].agg(["max", "size"])
-    if (counts["max"] > N_WELLS).any():
+    if int(raw["POSITION"].max()) > N_WELLS:
         raise TinctureDataError("Found well positions > 1536; not a GDSC2 1536-well release.")
     row, col = position_to_rowcol(raw["POSITION"].to_numpy(), N_WELLS, order="row-major")
-    first_tag = raw["TAG"].astype(str).str.split("+").str[0]
-    well_type = tag_to_well_type(first_tag)
-    dose = round_dose(raw["CONC"].to_numpy(dtype=float) / 1e6)
-    dose = np.where(well_type.isin(["neg_ctrl", "blank", "empty"]), 0.0, dose)
-    order = (
-        raw.drop_duplicates("SCAN_ID")
-        .assign(_d=pd.to_datetime(raw["SCAN_DATE"]))
-        .sort_values(["_d", "SCAN_ID"])["SCAN_ID"]
-        .reset_index(drop=True)
+    tag = raw["TAG"].astype("category")
+    tag_cats = pd.Series(tag.cat.categories.astype(str))
+    wt_of_cat = tag_to_well_type(tag_cats.str.split("+").str[0]).to_numpy()
+    well_type = pd.Categorical.from_codes(
+        pd.Categorical(wt_of_cat).codes[tag.cat.codes.to_numpy()],
+        categories=pd.Categorical(wt_of_cat).categories,
     )
-    plate_order = pd.Series(np.arange(len(order)), index=order.to_numpy())
+    wt_series = pd.Series(well_type)
+    dose = round_dose(raw["CONC"].to_numpy(dtype=float) / 1e6)
+    dose = np.where(wt_series.isin(["neg_ctrl", "blank", "empty"]).to_numpy(), 0.0, dose)
+    firsts = raw.drop_duplicates("SCAN_ID")[["SCAN_ID", "SCAN_DATE"]]
+    firsts = firsts.assign(_d=pd.to_datetime(firsts["SCAN_DATE"].astype(str)))
+    order = firsts.sort_values(["_d", "SCAN_ID"])["SCAN_ID"].to_numpy()
+    plate_order = pd.Series(np.arange(len(order)), index=order)
+    plate_codes, plate_uniques = pd.factorize(raw["SCAN_ID"])
+    plate = pd.Categorical.from_codes(plate_codes, categories=plate_uniques.astype(str))
+    drug = raw["DRUG_ID"]
+    drug_cat = drug.astype("category")
+    drug_cat = drug_cat.cat.rename_categories([str(_drug_id_str(v)) for v in drug_cat.cat.categories])
     data = pd.DataFrame(
         {
-            "plate": raw["SCAN_ID"].astype(str),
-            "row": row,
-            "col": col,
-            "well_type": well_type.to_numpy(),
-            "value": raw["INTENSITY"].astype(float),
-            "tag": raw["TAG"].astype(str),
-            "compound_id": raw["DRUG_ID"].map(_drug_id_str),
+            "plate": plate,
+            "row": row.astype(np.int16),
+            "col": col.astype(np.int16),
+            "well_type": well_type,
+            "value": raw["INTENSITY"].astype(np.float32),
+            "tag": tag,
+            "compound_id": drug_cat,
             "dose": dose,
-            "cell_line": raw["CELL_LINE_NAME"].astype(str),
-            "model_id": raw["SANGER_MODEL_ID"].astype(str),
+            "cell_line": raw["CELL_LINE_NAME"].astype("category"),
+            "model_id": raw["SANGER_MODEL_ID"].astype("category"),
             "drugset_id": raw["DRUGSET_ID"],
             "seeding_density": raw["SEEDING_DENSITY"],
             "scan_date": raw["SCAN_DATE"],
-            "plate_order": raw["SCAN_ID"].map(plate_order).to_numpy(),
+            "plate_order": raw["SCAN_ID"].map(plate_order).to_numpy(np.int32),
             "solvent_paired": raw["solvent_paired"].to_numpy(),
         }
     )

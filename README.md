@@ -9,7 +9,7 @@ Drug-discovery papers recycle the same generic plots (PCA, UMAP, volcano, GSEA b
 | What does this compound look like? | Compass, Neighbourhood Card | planned (M3, M5) |
 | Does the mechanism change with dose? | Dose Paths | planned (M3) |
 | What did it do biologically? | Fingerprint Strip, Effect Ladder | planned (M3) |
-| Is the effect real? | Retrievability, Plate Atlas | planned (M2) |
+| Is the effect real? | Retrievability, Plate Atlas | **available** |
 | Is there a safe, effective dose? | Window | planned (M5) |
 | How specific is it? | Selectivity Spectrum | planned (M5) |
 | Does potency hold up from enzyme to cell to phenotype? | Engagement Ladder | planned (M6) |
@@ -24,7 +24,7 @@ Every plot ships with:
 
 Uncertainty is on by default. When a result is weak (a failed fit, no confident neighbour, a bend within noise), the figure says so.
 
-> **Status: Milestone 1 of 7.** Done so far: the rendering core (PlotSpec, renderer, theme, journal export, captions), the data model, and verified loaders for sci-Plex, PRISM and GDSC. The question-first plots arrive milestone by milestone: see [`HANDOVER.md`](HANDOVER.md) §8 and the reports in [`docs/`](docs/).
+> **Status: Milestone 2 of 7.** Done so far: the rendering core, the data model, verified loaders for sci-Plex, PRISM and GDSC, the statistics layer (signatures with empirical-Bayes moderation and shrinkage, pathway scores) and the first two question-first plots: **Retrievability** and **Plate Atlas**. See [`HANDOVER.md`](HANDOVER.md) §8 and the reports in [`docs/`](docs/).
 
 ## Install
 
@@ -38,19 +38,36 @@ Optional extras: `[omics]` (pydeseq2, decoupler, scanpy; about 600 MB installed)
 
 ```python
 import tincture as tc
+from tincture.io.sciplex import load_sciplex3
+from tincture.stats.signatures import replicate_profiles
 
-# Long table: compound_id, dose (molar, 0 = vehicle), replicate, value
-res = tc.demo(df, focus="cpd1")  # every plot returns a PlotResult
-print(res.caption)  # templated reading guide
-print(res.methods)  # methods paragraph + software versions
-
-# Writes fig1.pdf, fig1.png, fig1.md (caption, methods, warnings) and fig1_classic.*
-tc.export(res, "figures/fig1", preset="nature_double")
+# Is each compound's phenotype real? (the gate before every other plot)
+profiles = replicate_profiles(load_sciplex3(cell_lines=["A549"]))
+res = tc.retrievability(profiles, focus=["S1090|1e-06"])  # abexinostat 1 µM
+print(res.caption)  # templated reading guide, says when a result is weak
+tc.export(res, "figures/retrievability", preset="nature_double")
+# writes .pdf/.png, a .md sidecar (caption, methods, warnings), and the classic replicate scatter
 ```
+
+```python
+from tincture.io.gdsc import load_gdsc2_plates
+from tincture.stats.zprime import Selector
+
+# Can we trust these plates? Z′, edge effect and control drift
+plates = load_gdsc2_plates(max_plates=300)
+qc = tc.plate_atlas(
+    plates,
+    neg=Selector(tags=("NC-1",)),
+    pos=Selector(well_types=("blank",)),
+    edge=Selector(tags=("UN-USED", "NC-1", "NC-0")),
+)
+```
+
+Every plot returns a `PlotResult` with `.caption`, `.methods`, `.warnings`, `.classic` and `.save()`.
 
 ![demo plot on synthetic data](docs/img/demo_synthetic.png)
 
-*The demo plot on **synthetic** test data. It exercises the pipeline only and is not a tincture analysis plot.*
+*The M0 demo plot on **synthetic** test data. It exercises the pipeline only and is not a tincture analysis plot.*
 
 ## Design in one paragraph
 
