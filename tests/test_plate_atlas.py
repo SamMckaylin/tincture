@@ -112,3 +112,20 @@ def test_plate_atlas_baseline():
     ).figure()
     check_colorblind(fig)
     return fig
+
+
+def test_many_plates_switch_to_binned_summary():
+    from tincture.plots import plate_atlas as pa
+
+    old = pa.BIN_THRESHOLD
+    pa.BIN_THRESHOLD = 5
+    try:
+        res = tc.plate_atlas(synthetic_plates(n_plates=8, n_wells=96, bad_plates=(2,)))
+    finally:
+        pa.BIN_THRESHOLD = old
+    from tincture.spec import BandMark
+
+    assert any(isinstance(m, BandMark) for m in res.spec.panel("edge").marks)
+    fails = [m for m in res.spec.panel("zprime").marks if isinstance(m, PointMark)]
+    assert fails and fails[0].color == "focus"  # failing plates still shown individually
+    assert "equal-count bins" in res.caption

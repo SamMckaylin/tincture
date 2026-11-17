@@ -20,6 +20,7 @@ from tincture.report.classic import build_classic, register_classic
 from tincture.report.methods import Methods, register_block
 from tincture.result import PlotResult
 from tincture.spec import (
+    BandMark,
     ColorbarSpec,
     HeatmapMark,
     LegendSpec,
@@ -52,6 +53,30 @@ register_block(
 )
 
 DENSITY_THRESHOLD = 1536
+#: Above this many plates, per-plate panels show binned median + 5–95% bands.
+BIN_THRESHOLD = 1000
+N_BINS = 120
+
+
+def _binned(x: np.ndarray, y: np.ndarray, n_bins: int = N_BINS) -> tuple[np.ndarray, ...]:
+    """Median and 5–95% quantiles of ``y`` in equal-count bins of ``x``."""
+    ok = np.isfinite(x) & np.isfinite(y)
+    x, y = x[ok], y[ok]
+    order = np.argsort(x)
+    chunks = [c for c in np.array_split(order, min(n_bins, max(1, len(order)))) if len(c)]
+    cx = np.array([x[c].mean() for c in chunks])
+    med = np.array([np.median(y[c]) for c in chunks])
+    lo = np.array([np.quantile(y[c], 0.05) for c in chunks])
+    hi = np.array([np.quantile(y[c], 0.95) for c in chunks])
+    return cx, med, lo, hi
+
+
+def _summary_marks(panel: Panel, x: np.ndarray, y: np.ndarray) -> None:
+    cx, med, lo, hi = _binned(x, y)
+    panel.add(
+        BandMark(x=cx, lo=lo, hi=hi, color="reference_light", alpha=0.7),
+        LineMark(x=cx, y=med, color="reference", width=1.2, categorical=True),
+    )
 
 
 def _choose_plate(qc: PlateQC, plate: str | None) -> tuple[str, str]:
@@ -177,7 +202,13 @@ def build_spec(
     )
     fail = t["fails"].to_numpy()
     passed = ~fail & np.isfinite(z)
-    if n <= 40:
+    binned = n > BIN_THRESHOLD
+    if binned:
+        fin = np.isfinite(zc)
+        _summary_marks(zp, x[fin], zc[fin])
+        if fail.any():
+            zp.add(PointMark(x=x[fail], y=zc[fail], color="focus", size=2, categorical=True))
+    elif n <= 40:
         ok_w = 0.8
         if passed.any():
             zp.add(
@@ -241,7 +272,9 @@ def build_spec(
     )
     er = t["edge_ratio"].to_numpy(float)
     ok = np.isfinite(er)
-    if ok.any():
+    if ok.any() and binned:
+        _summary_marks(ep, x[ok], er[ok])
+    elif ok.any():
         ep.add(
             PointMark(
                 x=x[ok],
@@ -271,16 +304,19 @@ def build_spec(
     )
     lv = t["neg_level"].to_numpy(float)
     okl = np.isfinite(lv)
-    cp.add(
-        PointMark(
-            x=x[okl],
-            y=lv[okl],
-            color="reference",
-            size=3 if n > 40 else 12,
-            alpha=0.6 if n > 40 else 1.0,
-            categorical=True,
+    if binned:
+        _summary_marks(cp, x[okl], lv[okl])
+    else:
+        cp.add(
+            PointMark(
+                x=x[okl],
+                y=lv[okl],
+                color="reference",
+                size=3 if n > 40 else 12,
+                alpha=0.6 if n > 40 else 1.0,
+                categorical=True,
+            )
         )
-    )
     cp.add(RefLineMark(axis="y", value=1.0, style="dotted"))
     if np.isfinite(qc.drift_change) and okl.sum() >= 3:
         xx = np.array([np.nanmin(x[okl]), np.nanmax(x[okl])])
@@ -292,8 +328,8 @@ def build_spec(
     zf = t["z_prime"].dropna()
     n_fail = int(t["fails"].sum())
     cap.add(
-        "{n} plates ({w}-well); median Z′ {med:.2f} (IQR {q1:.2f}–{q3:.2f}); "
-        "{nf} ({pct:.0%}) fall below {thr:g}.",
+        "{n:,} plates ({w}-well); median Z′ {med:.2f} (IQR {q1:.2f}–{q3:.2f}); "
+        "{nf:,} ({pct:.0%}) fall below {thr:g}.",
         n=n,
         w=pt.n_wells,
         med=float(zf.median()) if len(zf) else None,
@@ -303,6 +339,12 @@ def build_spec(
         pct=n_fail / max(len(zf), 1),
         thr=qc.threshold,
     )
+    if binned:
+        cap.add(
+            "Right panels summarise plates in {b} equal-count bins (blue line = median, band = "
+            "5–95%); every failing plate is shown as a terracotta point.",
+            b=min(N_BINS, n),
+        )
     if 0 < n_fail <= 5:
         cap.add("Failing plates: {lst}.", lst=", ".join(t.loc[t["fails"], "plate"].astype(str)))
     med_edge = float(np.nanmedian(er)) if ok.any() else None
@@ -314,12 +356,13 @@ def build_spec(
     )
     if qc.n_unseeded_outer:
         cap.add(
-            "{k} of {n} plates leave the outer ring unseeded; their edge is the next seeded ring.",
+            "{k:,} of {n:,} plates leave the outer ring unseeded; their edge is the next seeded "
+            "ring.",
             k=qc.n_unseeded_outer,
             n=n,
         )
     cap.add(
-        "Negative-control level (relative to {basis}) changes {s:+.0%} across the {n} plates in "
+        "Negative-control level (relative to {basis}) changes {s:+.0%} across the {n:,} plates in "
         "scan order (Theil–Sen; Spearman ρ = {rho:.2f}, p {p}).",
         basis=qc.drift_basis,
         s=qc.drift_change if np.isfinite(qc.drift_change) else None,
