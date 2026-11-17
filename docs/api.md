@@ -6,7 +6,7 @@ _Generated from docstrings by `docs/make_api.py` (tincture 0.0.1.dev0)._ Do not 
 import tincture as tc
 ```
 
-Top-level names: `tc.PlotResult`, `tc.TinctureDataError`, `tc.TinctureError`, `tc.TinctureWarning`, `tc.__version__`, `tc.compass`, `tc.demo`, `tc.dose_paths`, `tc.effect_ladder`, `tc.export`, `tc.fingerprint`, `tc.plate_atlas`, `tc.render_mpl`, `tc.retrievability`, `tc.theme`.
+Top-level names: `tc.PlotResult`, `tc.TinctureDataError`, `tc.TinctureError`, `tc.TinctureWarning`, `tc.__version__`, `tc.compass`, `tc.demo`, `tc.dose_paths`, `tc.effect_ladder`, `tc.export`, `tc.fingerprint`, `tc.plate_atlas`, `tc.render_mpl`, `tc.retrievability`, `tc.theme`, `tc.window`.
 
 ## Plots
 

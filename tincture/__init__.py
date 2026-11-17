@@ -19,6 +19,7 @@ from tincture.plots.effect_ladder import plot as effect_ladder
 from tincture.plots.fingerprint import plot as fingerprint
 from tincture.plots.plate_atlas import plot as plate_atlas
 from tincture.plots.retrievability import plot as retrievability
+from tincture.plots.window import plot as window
 from tincture.render.mpl import render_mpl
 from tincture.result import PlotResult
 
@@ -38,4 +39,5 @@ __all__ = [
     "render_mpl",
     "retrievability",
     "theme",
+    "window",
 ]

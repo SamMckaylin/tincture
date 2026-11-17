@@ -13,6 +13,10 @@ Ground rules: no data is committed (`data/` is git-ignored), no data is invented
 | 2026-11-17 | `cellmodelpassports.sanger.ac.uk` added to the environment (user-approved) to read the GDSC licence. |
 | 2026-11-17 | **GDSC-derived image found in the repo.** `docs/img/restyle_before_after.png` (committed during M2) showed a GDSC plate map and per-plate QC, against the practice below. Cropped to its sci-Plex half in M4, and (user-approved) the branch history was rewritten so no commit contains the GDSC version. GitHub may keep the old unreferenced commits reachable by their hash for a while; removing those needs a request to GitHub Support. Gallery and README use sci-Plex or synthetic figures only. |
 | 2026-11-17 | `static.omnipathdb.org`, `omnipathdb.org` added (gene sets for pathway scores). |
+| 2026-11-18 | M5: `pmc.ncbi.nlm.nih.gov`, `www.nature.com`, `static-content.springer.com` added (user-approved environment change) to fetch the D7 and D8 supplementary tables. |
+| 2026-11-18 | **D7 download blocked.** PMC (`pmc.ncbi.nlm.nih.gov`) answers file requests for PMC5814754 `mmc2.xlsx` with a proof-of-work browser challenge ("Preparing to download …"), not the file. Not worked around. PMC's old OA service (`www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi`) returns 404 and the PMC FTP no longer lists article packages. |
+| 2026-11-18 | **D8 download blocked.** `www.nature.com/articles/nbt.1990` redirects scripts to the `idp.nature.com` login handshake; fetching the supplementary files directly was denied by this session's permission policy. Not worked around. |
+| 2026-11-18 | `eutils.ncbi.nlm.nih.gov`, `pubmed.ncbi.nlm.nih.gov`, `cran.r-project.org` and `www.cell.com` are not allowed (proxy 403). |
 | 2026-11-16 | Nature, Cell and ACS author-guideline sites unreachable; journal presets are unverified (see `docs/design/journal_presets.md`). |
 
 ## D1: sci-Plex (Srivatsan et al., Science 2020), GEO GSE139944
@@ -89,9 +93,40 @@ Fetched through decoupler 2.3.1 from OmniPath (`static.omnipathdb.org`, `omnipat
 
 Gene identifiers are symbols. sci-Plex features are Ensembl ids and are mapped through `gene_symbol` (first occurrence wins for duplicated symbols). Our ULM matches `decoupler.mt.ulm` to within 6e-13 on real signatures.
 
-## D4–D12
+## D7: NanoBRET live-cell kinase engagement (Vasta et al., Cell Chem Biol 2018)
 
-Not started (M5–M7).
+**Status: blocked (download). Facts partly verified from the article page.**
+- Paper: Vasta et al., *Cell Chem Biol* 25(2):206–214.e11 (2018), doi 10.1016/j.chembiol.2017.10.010, PMID 29174542, **PMC5814754**. Abstract (PubMed): NanoBRET profiling of **178 full-length kinases** in live cells; cellular ATP disengages several putative crizotinib targets at a clinically relevant dose. Matches the handover.
+- Supplementary files listed on the PMC page: `mmc1.pdf`, **`mmc2.xlsx`** (the only spreadsheet; presumably the tables), `mmc3.pdf`. Table format **not verified**: the file could not be downloaded (see access log).
+- To unblock: download `mmc2.xlsx` from https://pmc.ncbi.nlm.nih.gov/articles/PMC5814754/ in a browser and place it at `data/raw/nanobret/vasta2018_mmc2.xlsx`; the loader will then be written against the real layout and pin its checksum.
+
+## D8: Davis et al. 2011 kinase Kd panel (Nat Biotechnol 29:1046)
+
+**Status: blocked (download). Facts partly verified.**
+- Paper: Davis et al., *Nat Biotechnol* 29(11):1046–1051 (2011), doi 10.1038/nbt.1990, PMID 22037378. Abstract: **72 kinase inhibitors × 442 kinases** (>80% of the human catalytic kinome). The handover says "~440"; the source says 442 assays.
+- Kd values (nM) are in **Supplementary Table 4**. Per the publisher's description, blank cells mean tested but Kd > 10 µM or not detected in the 10 µM primary screen. They are censored, not missing, and must not be read as measurements.
+- Not open access on PMC: **PMC3230241**, which a search returned for this paper, is a different study (Anastassiadis et al. 2011, catalytic activity). Recorded so nobody loads the wrong table.
+- To unblock: download Supplementary Table 4 (`.xls`) from https://www.nature.com/articles/nbt.1990 in a browser and place it at `data/raw/davis/davis2011_table4.xls`.
+
+## D9: LINCS L1000 (GEO GSE92742, GSE70138)
+
+**Status: verified (listing, sizes); see below for the chosen subset.**
+- Both series are on the GEO FTP host. GSE92742 (phase I) Level 5 `COMPZ.MODZ_n473647x12328.gctx.gz` is **20 GB** compressed (about 40 GB on disk unpacked), too large for this environment. **GSE70138** (phase II) Level 5 `COMPZ_n118050x12328_2017-03-06.gctx.gz` is **5.0 GB**, with `sig_info`, `pert_info`, `gene_info`, `cell_info` and `SHA512SUMS` alongside.
+- Neither series ships MoA annotations. MoA comes from the Drug Repurposing Hub fields in the **PRISM** files already cached (CC BY 4.0), matched on the Broad ID core (`BRD-K12345678`).
+- **Verified from the GSE70138 metadata (2026-11-18; SHA-512 checked against `GSE70138_SHA512SUMS.txt.gz`):**
+  - `sig_info`: 118,050 signatures (columns `sig_id, pert_id, pert_iname, pert_type, cell_id, pert_idose, pert_itime, distil_id`):
+    - 107,404 are `trt_cp` (compounds); the rest are vehicle, CRISPR, vector and untreated controls;
+    - 1,796 compounds across **30 cell lines**; seven core lines carry about 10–12.7k signatures each (MCF7, A375, PC3, HT29, HA1E, YAPC, HELA), and A549 only 1,954;
+    - doses are a 6-point series 0.04–10 µM (plus 20 µM for some); times are mostly 24 h (101,360), with some 3 h and 6 h.
+  - `pert_info`: 2,170 perturbagens with `canonical_smiles` and `inchi_key`; the InChIKey is the cross-dataset ID.
+  - `gene_info`: 12,328 genes, **978 landmark** (`pr_is_lm == 1`); only the landmarks are measured (the rest are inferred) and only they are used.
+  - `sig_metrics` includes `tas` (transcriptional activity score) and `distil_cc_q75` (replicate correlation), used to gate weak signatures.
+- **MoA coverage via PRISM:** 616 of 1,796 compounds match a PRISM `moa` by Broad ID core; 303 MoA labels, **63 with ≥ 3 compounds** (largest: EGFR inhibitor 18, HDAC inhibitor 14, topoisomerase inhibitor 12, MEK inhibitor 11, PI3K inhibitor 11).
+- Level 5 matrix: downloading `GSE70138_Broad_LINCS_Level5_COMPZ_n118050x12328_2017-03-06.gctx.gz` (5.0 GB). Only the 978 landmark rows will be kept, in a local cache of about 0.5 GB.
+
+## D4–D6, D10–D12
+
+Not started (M6–M7).
 
 ## Unmatched compound names
 
