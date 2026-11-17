@@ -12,6 +12,7 @@ from tincture import theme
 from tincture._version import __version__
 from tincture.errors import TinctureDataError, TinctureError, TinctureWarning
 from tincture.export import export
+from tincture.plots.compass import plot as compass
 from tincture.plots.demo import demo
 from tincture.plots.plate_atlas import plot as plate_atlas
 from tincture.plots.retrievability import plot as retrievability
@@ -24,6 +25,7 @@ __all__ = [
     "TinctureError",
     "TinctureWarning",
     "__version__",
+    "compass",
     "demo",
     "export",
     "plate_atlas",
