@@ -40,6 +40,14 @@ LINE = "A549"
 TOP = 1e-5  # 10 µM
 FOCUS = "S1090"  # abexinostat
 HDAC = "Histone deacetylation"
+# Ground-truth group = pan / class-I HDAC inhibitors. Fixed on 2026-11-17, agreed with the
+# user BEFORE re-running (see docs/milestone_3.md): the dataset's "Histone deacetylation"
+# annotation also contains two compounds that are not expected to give the pan-HDAC
+# transcriptional response at <= 10 uM. They are left out of every check (neither group).
+NOT_PAN_CLASS_I = {
+    "S2627": "tubastatin A (HDAC6-selective)",
+    "S1168": "valproate (millimolar potency; inactive at <= 10 uM)",
+}
 SHORT = {
     HDAC: "HDAC",
     "HSP90 activity": "HSP90",
@@ -52,12 +60,12 @@ SOURCE = ("sci-Plex3, Srivatsan et al. Science 2020 (GSE139944)",)
 
 def run() -> tuple[Path, bool]:
     rep = Report("cs1_sciplex_hdac", f"CS1: HDAC inhibitors in sci-Plex3 {LINE} (24 h)")
-    ps = load_sciplex3(cell_lines=[LINE])
+    ps = load_sciplex3(cell_lines=[LINE], build=True)  # first run: GEO download + cache
     sigset = ps.signatures()[0]
     hall = load_geneset("hallmark").table
     obs = ps.obs[ps.obs["dose"] > 0].drop_duplicates("compound_id").set_index("compound_id")
     classes = {k: list(v.index) for k, v in obs.groupby("pathway_level_2")}
-    hdac_ids = set(classes[HDAC])
+    hdac_ids = set(classes[HDAC]) - set(NOT_PAN_CLASS_I)
     rep.text(
         "Signatures: per-well pseudobulk logCPM vs same-line vehicle, limma-style "
         "empirical-Bayes variances and normal-prior shrinkage. Reference classes: "
@@ -202,13 +210,6 @@ def run() -> tuple[Path, bool]:
     rng = np.random.default_rng(0)
     perm = np.array([within_minus_between(rng.permutation(is_h)) for _ in range(2000)])
     p_fp = (np.sum(perm >= obs_diff) + 1) / (len(perm) + 1)
-    # post-hoc sensitivity (reported, not used for the check): HDAC rows with HDAC signal only
-    hd_sig = {p.compound_id for p in hd_pts if spokes[int(np.argmax(p.projection.weights))] == HDAC}
-    keep = np.array([(r not in hdac_ids) or (r in hd_sig) for r in S.index])
-    Ck, hk = np.corrcoef(S.to_numpy()[keep]), is_h[keep]
-    iuk = np.triu_indices(int(keep.sum()), 1)
-    within_k = float(Ck[iuk][hk[iuk[0]] & hk[iuk[1]]].mean())
-    between_k = float(Ck[iuk][hk[iuk[0]] ^ hk[iuk[1]]].mean())
     within = float(C[iu][is_h[iu[0]] & is_h[iu[1]]].mean())
     between = float(C[iu][is_h[iu[0]] ^ is_h[iu[1]]].mean())
 
@@ -240,6 +241,11 @@ def run() -> tuple[Path, bool]:
     # Checks ------------------------------------------------------------------------------
     rep.text(
         "## Ground-truth checks",
+        "HDAC group = pan / class-I HDAC inhibitors: the dataset's HDAC annotation minus "
+        + "; ".join(NOT_PAN_CLASS_I.values())
+        + ". This definition was fixed before this run. The first run used the raw "
+        "annotation and the Fingerprint check narrowly failed (0.69 vs 0.54, p = 0.011 "
+        "against p < 0.01); see docs/milestone_3.md.",
         "### Dose (HDAC inhibitors that pass the gate at 10 µM)",
         md_table(dose_tab),
         "",
@@ -255,8 +261,7 @@ def run() -> tuple[Path, bool]:
         within > between and p_fp < 0.01,
         f"mean row correlation {within:.2f} within HDAC inhibitors vs {between:.2f} with "
         f"other compounds (permutation p = {p_fp:.2g}, 2,000 label shuffles; criterion "
-        f"p < 0.01). Post hoc, restricted to HDAC inhibitors whose Compass top spoke is HDAC "
-        f"({len(hd_sig)}): {within_k:.2f} within vs {between_k:.2f} with others.",
+        f"p < 0.01).",
     )
     rho = dose_tab["Spearman(dose, x)"].dropna()
     cosv = dose_tab["min cos(step, HDAC ref)"].dropna()

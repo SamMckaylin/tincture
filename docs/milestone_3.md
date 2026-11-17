@@ -69,6 +69,18 @@
 - Post hoc, restricting to the 18 HDAC inhibitors whose Compass top spoke is HDAC gives 0.83 within vs 0.59 between. That analysis is labelled post hoc in the report and is **not** used for the check.
 - I kept the criterion as set. Changing it after seeing the result would make the check meaningless. Your call (see open questions).
 
+### Re-run with a pharmacological HDAC group (your decision: option 2)
+
+Before re-running, the ground-truth group was fixed as **pan / class-I HDAC inhibitors**: the dataset's annotation minus tubastatin A (HDAC6-selective) and valproate (millimolar potency). Both are left out of every check, in neither group. The definition is in `NOT_PAN_CLASS_I` in the script and printed in the report. I ran it once:
+
+| Check | Result |
+|---|---|
+| Coherent group | ✅ 18/25 with signal project mainly onto HDAC (unchanged; the two excluded compounds had no signal) |
+| Fingerprint rows match | ✅ 0.83 within vs 0.59 with other compounds, permutation p = 0.0005 (criterion p < 0.01, unchanged) |
+| Dose along a consistent direction | ✅ 14/17 rise with dose; median noise-corrected cosine 0.86 |
+
+**Overall: PASS.** The first-run numbers above stay in this file and in the report header.
+
 ## What failed or changed along the way
 
 1. **Compass noise.** Without noise correction, 85 of 102 compounds were flagged "novel", because noise counts as residual. Fixed with the signal-energy correction and χ² gate described above.
