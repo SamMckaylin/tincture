@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### M4: v0.1 polish (2026-11-17)
+- One-command CS1 (`python case_studies/cs1_sciplex_hdac.py`) verified from a fresh clone with the core install; the sci-Plex cache builds on first use.
+- Hallmark gene sets are fetched directly from OmniPath (no decoupler needed); identical to decoupler's table.
+- `docs/gallery.md` (classic vs tincture for every plot), README before/after, generated `docs/api.md` with a staleness test.
+- User-study kit: `case_studies/user_study.py` (pairs, answer key from results, counterbalanced assignments, scorer) and `docs/user_study.md`.
+- Classic fallbacks are fairer: Compass PCA colours reference classes; PCA by dose marks and labels compounds.
+- CS1 uses a pharmacological HDAC group (pan / class-I), fixed before re-running; writes `results.json`.
+- Docs image with GDSC panels cropped to its sci-Plex half (licence practice).
+
 ### M3: Compass, Dose Paths, Fingerprint Strip, Effect Ladder (2026-11-17)
 - `model.reference`: `ReferenceLibrary` (class-mean references, leave-one-out, coherence) and `library_from_signatures`.
 - `stats.projection`: NNLS on unit references with noise-corrected magnitude and R², χ² signal test, bootstrap ellipses, seriation.
