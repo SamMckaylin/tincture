@@ -31,7 +31,7 @@
 
 1. **The first fresh-user run failed.** Fetching gene sets required decoupler, which is only in the 600 MB `[omics]` extra, so a core install could not run CS1. Hallmark is now read straight from OmniPath's static table with the same processing as decoupler. I checked: identical 7,318 set–gene pairs. PROGENy still needs decoupler.
 2. **`load_sciplex3` refused to build its cache unless asked**, so CS1 now passes `build=True`.
-3. **A committed docs image contained GDSC data.** The M2 restyle before/after image showed a GDSC plate map and per-plate QC, which conflicts with the recorded practice that derived GDSC data stay local. It is now cropped to its sci-Plex half and logged in `docs/data_status.md`. **The old version is still in git history** (commit `fd8a865`); see open questions.
+3. **A committed docs image contained GDSC data.** The M2 restyle before/after image showed a GDSC plate map and per-plate QC, which conflicts with the recorded practice that derived GDSC data stay local. It is now cropped to its sci-Plex half and logged in `docs/data_status.md`. At your request the branch history was rewritten so that no commit contains the GDSC version (12 commits, force-pushed; the final tree is unchanged).
 4. **The Compass methods paragraph was stale.** It still described the radius as "the norm of the shrunk signature" after the noise correction; rewritten.
 5. **CS1 Fingerprint check (from M3).** Re-run once with the pharmacological HDAC group you chose, defined before running: 0.83 within vs 0.59 between, p = 0.0005, all checks pass. Recorded in `docs/milestone_3.md`.
 
@@ -43,6 +43,5 @@
 
 ## Open questions
 
-1. **Git history:** should I rewrite history on this branch to purge the GDSC-derived image from commit `fd8a865`? It needs a force-push, so it's your call. Alternatively, leave it as it is if the repository stays private.
-2. **User study:** running it needs 8–10 scientists. The kit is ready; tell me if you want any items changed before it's used.
-3. **Still open from §9:** package name (a PyPI check), and Bliss vs HSA as the default synergy model (needed for M7).
+1. **User study:** running it needs 8–10 scientists. The kit is ready; tell me if you want any items changed before it's used.
+2. **Still open from §9:** package name (a PyPI check), and Bliss vs HSA as the default synergy model (needed for M7).
