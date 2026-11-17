@@ -121,7 +121,7 @@ def collapse_duplicate_wells(raw: pd.DataFrame) -> pd.DataFrame:
     """Collapse wells listed twice (DMSO solvent row + drug row) into one row."""
     key = ["SCAN_ID", "POSITION"]
     k = raw["SCAN_ID"].to_numpy(np.int64) * 4096 + raw["POSITION"].to_numpy(np.int64)
-    uniq, inv, cnt = np.unique(k, return_inverse=True, return_counts=True)
+    _, inv, cnt = np.unique(k, return_inverse=True, return_counts=True)
     n = cnt[inv]
     is_dmso = (raw["TAG"].astype(str) == "DMSO").to_numpy()
     drop = is_dmso & (n > 1)
@@ -243,7 +243,9 @@ def load_gdsc2_plates(
     plate = pd.Categorical.from_codes(plate_codes, categories=plate_uniques.astype(str))
     drug = raw["DRUG_ID"]
     drug_cat = drug.astype("category")
-    drug_cat = drug_cat.cat.rename_categories([str(_drug_id_str(v)) for v in drug_cat.cat.categories])
+    drug_cat = drug_cat.cat.rename_categories(
+        [str(_drug_id_str(v)) for v in drug_cat.cat.categories]
+    )
     data = pd.DataFrame(
         {
             "plate": plate,

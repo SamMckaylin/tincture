@@ -163,8 +163,15 @@ def test_gdsc_categorical_chunks_merge():
     from tincture.io.gdsc import _CATEGORICAL, _concat_categorical
 
     def chunk(tags, line):
-        d = pd.DataFrame({"SCAN_ID": [1] * len(tags), "TAG": tags, "SCAN_DATE": "2020-01-01",
-                          "CELL_LINE_NAME": line, "SANGER_MODEL_ID": "SIDM1"})
+        d = pd.DataFrame(
+            {
+                "SCAN_ID": [1] * len(tags),
+                "TAG": tags,
+                "SCAN_DATE": "2020-01-01",
+                "CELL_LINE_NAME": line,
+                "SANGER_MODEL_ID": "SIDM1",
+            }
+        )
         for c in _CATEGORICAL:
             d[c] = d[c].astype("category")
         return d
