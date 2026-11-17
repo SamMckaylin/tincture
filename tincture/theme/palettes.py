@@ -21,10 +21,19 @@ BLUE_LIGHT: Final = "#9CCDE8"
 NEUTRAL: Final = "#D1D1D1"
 PEACH: Final = "#F6BD78"
 TERRACOTTA: Final = "#D97757"
-PURPLE: Final = "#7C5CBF"
-PURPLE_LIGHT: Final = "#CDB6EC"
-GREEN: Final = "#2E8B57"
-GREEN_LIGHT: Final = "#B7DFA4"
+# Purple and green were re-chosen in M2 (approved by the user): the brief's #7C5CBF /
+# #2E8B57 collided with blue / terracotta under deuteranopia / protanopia (ΔE₀₀ ≈ 2).
+# These muted replacements keep every pair of the 8 categorical colours at ΔE₀₀ ≥ 10
+# under normal vision, deuteranopia and protanopia (dark set ≥ 18). See
+# docs/design/theme_colorblind.md.
+PURPLE: Final = "#4B3F70"  # dusty indigo   (brief: #7C5CBF)
+PURPLE_LIGHT: Final = "#9993AC"  # lavender grey (brief: #CDB6EC)
+GREEN: Final = "#3B5F44"  # forest          (brief: #2E8B57)
+GREEN_LIGHT: Final = "#B6D7C1"  # soft sage     (brief: #B7DFA4)
+
+#: The brief's original purple/green, kept for documentation and regression tests.
+BRIEF_PURPLE: Final = "#7C5CBF"
+BRIEF_GREEN: Final = "#2E8B57"
 
 INK: Final = "#222222"  # text, axes
 INK_SOFT: Final = "#6B6B6B"  # secondary text, gridlines labels

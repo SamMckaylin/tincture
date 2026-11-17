@@ -11,24 +11,26 @@
 
 `tc.export` runs this check on every export (main and classic figures). Pass `check=False` to override it deliberately.
 
-## Finding: two pairs in the brief's palette collide (open decision)
+## Finding: the brief's palette had collisions, now fixed (M2)
 
-| Pair | Meaning | Worst ΔE₀₀ | Under |
+As specified, two pairs were near-identical for colour-blind readers (ΔE₀₀ ≈ 2): **reference blue `#2F7CC4` vs novel purple `#7C5CBF`** under deuteranopia, and **focus terracotta `#D97757` vs good green `#2E8B57`** under protanopia. The light variants collided too (light blue vs light purple ΔE₀₀ 1.6).
+
+**Decision (approved by the user: "colour-blind friendly, but attractive, no bright high-contrast pinks"):** keep the brief's blue, terracotta, peach, light blue and neutral, which carry the diverging scale and already pass. Re-choose only the purple and green families, in muted tones:
+
+| Role | Brief | Now | Character |
 |---|---|---|---|
-| blue `#2F7CC4` vs purple `#7C5CBF` | reference vs novel | **2.1** | deuteranopia (7.2 protanopia) |
-| terracotta `#D97757` vs green `#2E8B57` | focus vs good/window | **2.1** | protanopia |
-| light blue `#9CCDE8` vs light purple `#CDB6EC` | reference vs novel (light) | 1.6 | deuteranopia |
-| peach `#F6BD78` vs light green `#B7DFA4` | focus-light vs window | 7.4 | protanopia |
+| novel | `#7C5CBF` | **`#4B3F70`** | dusty indigo |
+| novel (light) | `#CDB6EC` | **`#9993AC`** | lavender grey |
+| good | `#2E8B57` | **`#3B5F44`** | forest |
+| window / good (light) | `#B7DFA4` | **`#B6D7C1`** | soft sage |
 
-Reference vs novel is the central contrast of the Compass and Neighbourhood Card, and focus vs window matters in the Window plot. As specified, these pairs are indistinguishable to roughly 1 in 12 men.
+How they were chosen: random search in CIE LCh, constrained to violet/indigo hues (280–305°, no magenta or pink), sage/forest greens (120–175°), and chroma no higher than the brief's own blue. Each candidate was scored by its worst-case CIEDE2000 under normal vision, deuteranopia and protanopia.
 
-**The palette is implemented exactly as specified.** The checker refuses any figure that puts a colliding pair together, so plots in M3 onward must avoid those combinations.
+Result:
+- dark set {blue, terracotta, indigo, forest}: min ΔE₀₀ = **27.4 / 18.0 / 18.4** (normal / deutan / protan);
+- light set: min **20.2 / 13.6 / 14.9**;
+- all 8 together: ≥ 10 in every vision type.
 
-Proposed replacement (not applied):
+A livelier purple (`#5A4A8E`) was rejected because it fell to ΔE₀₀ 8.8 against light blue under deuteranopia.
 
-| Role | Current | Proposed | Min ΔE₀₀ vs blue/terracotta/other, all three visions |
-|---|---|---|---|
-| novel | `#7C5CBF` | `#55309A` (deeper indigo-purple) | ≥ 15.8 |
-| good | `#2E8B57` | `#1E5C3E` (deeper green) | ≥ 15.8 |
-
-With both swaps, {blue, terracotta, purple, green} stay at ΔE₀₀ ≥ 15 under normal vision, deuteranopia and protanopia. The light variants need the same treatment once the dark ones are settled.
+Visual comparison (old vs new, with a deuteranopia simulation): `docs/img/palette_compare.png`. Tests: `test_tincture_palette_is_colourblind_safe`, `test_palette_is_muted` (chroma ≤ 50), and the original colours are kept as `BRIEF_PURPLE`/`BRIEF_GREEN` for regression tests.

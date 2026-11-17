@@ -37,14 +37,25 @@ def test_too_small_text_refused(tmp_path):
 
 
 def test_colour_collision_refused(tmp_path):
+    # The brief's original purple collapses onto the reference blue under deuteranopia.
     p = Panel().add(
         PointMark(x=[0], y=[0], color="reference", categorical=True),
-        PointMark(x=[1], y=[1], color="novel", categorical=True),
+        PointMark(x=[1], y=[1], color=P.BRIEF_PURPLE, categorical=True),
     )
     with pytest.raises(TinctureColorblindError):
         tc.export(PlotSpec(plot="x", panels=[p]), tmp_path / "x")
     # check=False lets the user override deliberately
     assert "png" in tc.export(PlotSpec(plot="x", panels=[p]), tmp_path / "y", check=False)
+
+
+def test_reference_vs_novel_now_exports(tmp_path):
+    p = Panel().add(
+        PointMark(x=[0], y=[0], color="reference", categorical=True),
+        PointMark(x=[1], y=[1], color="novel", categorical=True),
+        PointMark(x=[2], y=[2], color="focus", categorical=True),
+        PointMark(x=[3], y=[3], color="good", categorical=True),
+    )
+    assert "png" in tc.export(PlotSpec(plot="x", panels=[p]), tmp_path / "z", formats=("png",))
 
 
 def test_plain_matplotlib_figure_resized(tmp_path):

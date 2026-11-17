@@ -111,18 +111,35 @@ class TestColorblindCheck:
         assert check_colours([P.BLUE, P.TERRACOTTA]).passed
 
     def test_brief_palette_collisions_are_detected(self):
-        # Documented finding (docs/milestone_0.md): reference blue vs novel purple
-        # collapse under deuteranopia, focus terracotta vs good green under protanopia.
-        r = check_colours([P.BLUE, P.PURPLE, P.TERRACOTTA, P.GREEN])
-        kinds = {k for *_, k, _ in [(a, b, kind, d) for a, b, kind, d in r.failures]}
+        # Documented finding (docs/design/theme_colorblind.md): the brief's purple/green
+        # collapse onto blue (deuteranopia) and terracotta (protanopia).
+        r = check_colours([P.BLUE, P.BRIEF_PURPLE, P.TERRACOTTA, P.BRIEF_GREEN])
+        kinds = {kind for _, _, kind, _ in r.failures}
         assert {"deuteranopia", "protanopia"} <= kinds
+
+    def test_tincture_palette_is_colourblind_safe(self):
+        dark = [P.BLUE, P.TERRACOTTA, P.PURPLE, P.GREEN]
+        light = [P.BLUE_LIGHT, P.PEACH, P.PURPLE_LIGHT, P.GREEN_LIGHT]
+        assert check_colours(dark, threshold=15).passed
+        assert check_colours(light + dark, threshold=10).passed
+
+    def test_palette_is_muted(self):
+        """No neon: every categorical colour has chroma no higher than the brief's own blue
+        and terracotta (C* ≤ 50 in CIELAB)."""
+        from matplotlib.colors import to_rgb
+
+        from tincture.theme.colorblind import srgb_to_lab
+
+        for c in (P.PURPLE, P.GREEN, P.PURPLE_LIGHT, P.GREEN_LIGHT):
+            _, a, b = srgb_to_lab(np.array(to_rgb(c)))
+            assert np.hypot(a, b) <= 50, c
 
     def test_check_on_figure_with_tagged_artists(self):
         fig, ax = plt.subplots()
         (a,) = ax.plot([0, 1], [0, 1], color=P.BLUE)
-        (b,) = ax.plot([0, 1], [1, 0], color=P.PURPLE)
+        (b,) = ax.plot([0, 1], [1, 0], color=P.BRIEF_PURPLE)
         a.set_gid(f"tc:cat:{P.BLUE}")
-        b.set_gid(f"tc:cat:{P.PURPLE}")
+        b.set_gid(f"tc:cat:{P.BRIEF_PURPLE}")
         with pytest.raises(TinctureColorblindError, match="deuteranopia"):
             check_colorblind(fig)
         rep = check_colorblind(fig, raise_on_fail=False)
