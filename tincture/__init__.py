@@ -15,6 +15,8 @@ from tincture.export import export
 from tincture.plots.compass import plot as compass
 from tincture.plots.demo import demo
 from tincture.plots.dose_paths import plot as dose_paths
+from tincture.plots.effect_ladder import plot as effect_ladder
+from tincture.plots.fingerprint import plot as fingerprint
 from tincture.plots.plate_atlas import plot as plate_atlas
 from tincture.plots.retrievability import plot as retrievability
 from tincture.render.mpl import render_mpl
@@ -29,7 +31,9 @@ __all__ = [
     "compass",
     "demo",
     "dose_paths",
+    "effect_ladder",
     "export",
+    "fingerprint",
     "plate_atlas",
     "render_mpl",
     "retrievability",

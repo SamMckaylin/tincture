@@ -299,6 +299,7 @@ def _draw_rects(ax: Axes, m: RectMark, handles: list) -> None:
             hatch=m.hatch,
             alpha=m.alpha,
             zorder=m.z,
+            clip_on=m.clip,
         )
         ax.add_patch(r)
         _tag(r, cols[i] if cols[i] != "none" else ec, m.categorical)
@@ -347,6 +348,7 @@ def _draw_heatmap(ax: Axes, m: HeatmapMark) -> Any:
                 vmax=float(finite.max()) if m.vmax is None and finite.size else m.vmax,
             )
     ypos = heatmap_row_positions(n_rows, m.row_gap_after)
+    xpos = heatmap_row_positions(n_cols, m.col_gap_after)
     rounded = m.style == "rounded" or (m.style == "auto" and v.size <= ROUNDED_MAX_CELLS)
     circles = np.zeros_like(v, bool) if m.circles is None else np.asarray(m.circles, bool)
     mappable = ScalarMappable(norm=norm, cmap=cmap)
@@ -356,10 +358,10 @@ def _draw_heatmap(ax: Axes, m: HeatmapMark) -> Any:
         for i in range(n_rows):
             for j in range(n_cols):
                 if circles[i, j]:
-                    patch: Any = Ellipse((j, ypos[i]), size, size)
+                    patch: Any = Ellipse((xpos[j], ypos[i]), size, size)
                 else:
                     patch = FancyBboxPatch(
-                        (j - size / 2, ypos[i] - size / 2),
+                        (xpos[j] - size / 2, ypos[i] - size / 2),
                         size,
                         size,
                         boxstyle=f"round,pad=0,rounding_size={ROUNDING}",
@@ -391,39 +393,32 @@ def _draw_heatmap(ax: Axes, m: HeatmapMark) -> Any:
         cmap = cmap.with_extremes(bad=PAPER)
         data = np.ma.masked_array(np.where(neutral & ~absent, np.nan, v), mask=absent | neutral)
         edge = resolve_color(m.cell_edge) if m.cell_edge else "face"
-        starts = [0] + [g + 1 for g in sorted(m.row_gap_after)]
-        ends = [g + 1 for g in sorted(m.row_gap_after)] + [n_rows]
-        xe = np.arange(n_cols + 1) - 0.5
-        for s0, e0 in zip(starts, ends, strict=True):
-            if s0 >= e0:
-                continue
-            ye = np.concatenate([ypos[s0:e0] - 0.5, [ypos[e0 - 1] + 0.5]])
-            ax.pcolormesh(
-                xe,
-                ye,
-                data[s0:e0],
-                cmap=cmap,
-                norm=norm,
-                edgecolors=edge,
-                linewidth=0.3 if m.cell_edge else 0,
-                zorder=m.z,
-            )
-        if neutral.any():
-            nv = np.ma.masked_array(np.ones_like(v), mask=~(neutral & ~absent))
-            for s0, e0 in zip(starts, ends, strict=True):
-                if s0 >= e0:
-                    continue
-                ye = np.concatenate([ypos[s0:e0] - 0.5, [ypos[e0 - 1] + 0.5]])
-                ax.pcolormesh(
-                    xe,
-                    ye,
-                    nv[s0:e0],
-                    cmap=ListedColormap([NEUTRAL]),
-                    edgecolors=edge,
-                    linewidth=0.3 if m.cell_edge else 0,
-                    zorder=m.z,
-                )
-    ax.set_xlim(-0.5, n_cols - 0.5)
+
+        def blocks(n: int, gaps: list[int]) -> list[tuple[int, int]]:
+            st = [0] + [g + 1 for g in sorted(gaps)]
+            en = [g + 1 for g in sorted(gaps)] + [n]
+            return [(a, b) for a, b in zip(st, en, strict=True) if a < b]
+
+        nv = np.ma.masked_array(np.ones_like(v), mask=~(neutral & ~absent))
+        for r0, r1 in blocks(n_rows, m.row_gap_after):
+            ye = np.concatenate([ypos[r0:r1] - 0.5, [ypos[r1 - 1] + 0.5]])
+            for c0, c1 in blocks(n_cols, m.col_gap_after):
+                xe = np.concatenate([xpos[c0:c1] - 0.5, [xpos[c1 - 1] + 0.5]])
+                layers = [(data, cmap, norm)]
+                if neutral.any():
+                    layers.append((nv, ListedColormap([NEUTRAL]), None))
+                for arr, cm_, nm_ in layers:
+                    ax.pcolormesh(
+                        xe,
+                        ye,
+                        arr[r0:r1, c0:c1],
+                        cmap=cm_,
+                        norm=nm_,
+                        edgecolors=edge,
+                        linewidth=0.3 if m.cell_edge else 0,
+                        zorder=m.z,
+                    )
+    ax.set_xlim(-0.5, xpos[-1] + 0.5 if n_cols else 0.5)
     ax.set_ylim(ypos[-1] + 0.5 if n_rows else 0.5, -0.5)
     return mappable
 
@@ -579,6 +574,16 @@ def _apply_scale(ax: Axes, s: Scale, which: str, cat_pos: np.ndarray | None) -> 
             from matplotlib.ticker import NullFormatter
 
             axis.set_minor_formatter(NullFormatter())
+    if which == "x" and s.tick_side == "top":
+        ax.xaxis.tick_top()
+        ax.xaxis.set_label_position("top")
+    if s.tick_rotation:
+        top = which == "x" and s.tick_side == "top"
+        for lab in axis.get_ticklabels():
+            lab.set_rotation(s.tick_rotation)
+            lab.set_rotation_mode("anchor")
+            lab.set_horizontalalignment("left" if top else "right")
+            lab.set_verticalalignment("center" if which == "y" else ("bottom" if top else "top"))
     if s.domain is not None:
         set_lim(*s.domain)
     if s.invert:
@@ -598,6 +603,7 @@ def _draw_panel(fig: Figure, ax: Axes, panel: Panel) -> None:
     handles: list = []
     mappable = None
     heatmap_rows: np.ndarray | None = None
+    heatmap_cols: np.ndarray | None = None
     for m in sorted(panel.marks, key=lambda mk: mk.z):
         if isinstance(m, PointMark):
             _draw_points(ax, m, handles)
@@ -612,6 +618,7 @@ def _draw_panel(fig: Figure, ax: Axes, panel: Panel) -> None:
         elif isinstance(m, HeatmapMark):
             mappable = _draw_heatmap(ax, m)
             heatmap_rows = heatmap_row_positions(np.shape(m.values)[0], m.row_gap_after)
+            heatmap_cols = heatmap_row_positions(np.shape(m.values)[1], m.col_gap_after)
         elif isinstance(m, ContourMark):
             mappable = _draw_contour(ax, m)
         elif isinstance(m, EllipseMark):
@@ -626,7 +633,7 @@ def _draw_panel(fig: Figure, ax: Axes, panel: Panel) -> None:
             raise TinctureSpecError(f"Unknown mark type {type(m).__name__}.")
 
     if panel.projection == "cartesian":
-        _apply_scale(ax, panel.x, "x", None)
+        _apply_scale(ax, panel.x, "x", heatmap_cols)
         _apply_scale(ax, panel.y, "y", heatmap_rows)
         if heatmap_rows is not None and panel.y.kind == "categorical":
             ax.set_ylim(heatmap_rows[-1] + 0.5, -0.5)

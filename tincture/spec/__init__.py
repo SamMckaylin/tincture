@@ -48,6 +48,8 @@ class Scale:
     invert: bool = False
     visible: bool = True
     grid: bool = False
+    tick_rotation: float = 0.0  # degrees; rotated labels are anchored at their tick
+    tick_side: Literal["default", "top"] = "default"  # x only: ticks and label on top
 
     def __post_init__(self) -> None:
         if self.kind == "categorical" and not self.categories:
@@ -199,6 +201,7 @@ class RectMark(Mark):
     linewidth: float = 0.6
     hatch: str | None = None
     alpha: float = 1.0
+    clip: bool = True  # False: may draw outside the axes (e.g. a row marker left of a heatmap)
 
     def validate(self) -> None:
         _same_len("RectMark", x0=self.x0, y0=self.y0, width=self.width, height=self.height)
@@ -221,6 +224,7 @@ class HeatmapMark(Mark):
     vmin: float | None = None
     vmax: float | None = None
     row_gap_after: list[int] = field(default_factory=list)
+    col_gap_after: list[int] = field(default_factory=list)
     cell_edge: str | None = "paper"
     style: Literal["auto", "rounded", "flat"] = "auto"  # rounded cells with gutters (≤ 5,000)
     circles: ArrayLike = None  # bool (n_rows, n_cols): draw these cells as circles
