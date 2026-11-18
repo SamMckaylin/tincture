@@ -152,3 +152,25 @@ LINCS_GSE70138 = {
         "b2df105ebf7a69799b23130d03b7da769bfd6ab83fd69cbb419c91c78ae069ae3e5d474e09d36e3ac4271f3b7fc56b24caaf1ac5ece9554ea7738b15535dfefd",
     ),
 }
+
+
+# --- D7 / D8: kinase panels. Publishers block scripted downloads (docs/data_status.md), so
+# these are placed by hand; checksums pin the exact files the loaders were written against.
+NANOBRET_VASTA2018 = RemoteFile(
+    "nanobret",
+    "vasta2018_mmc2.xlsx",
+    "https://pmc.ncbi.nlm.nih.gov/articles/PMC5814754/",
+    sha256="b6348a34e7c62946eb5701d0adac35d15b73be0354de143c4aca0eecec677ac3",
+    size=26112,
+    licence="Table S1 of Vasta et al., Cell Chem Biol 2018 (NIH author manuscript)",
+    manual=True,
+)
+DAVIS2011_TABLE4 = RemoteFile(
+    "davis",
+    "davis2011_table4.xls",
+    "https://www.nature.com/articles/nbt.1990",
+    sha256="e47821b2e959ff22aa6d1613b236a63fb530f0da19cfa8d45408598cf27498d7",
+    size=304640,
+    licence="Supplementary Table 4 of Davis et al., Nat Biotechnol 2011",
+    manual=True,
+)

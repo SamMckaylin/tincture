@@ -6,7 +6,7 @@ _Generated from docstrings by `docs/make_api.py` (tincture 0.0.1.dev0)._ Do not 
 import tincture as tc
 ```
 
-Top-level names: `tc.PlotResult`, `tc.TinctureDataError`, `tc.TinctureError`, `tc.TinctureWarning`, `tc.__version__`, `tc.compass`, `tc.demo`, `tc.dose_paths`, `tc.effect_ladder`, `tc.export`, `tc.fingerprint`, `tc.neighbourhood`, `tc.plate_atlas`, `tc.render_mpl`, `tc.retrievability`, `tc.selectivity`, `tc.theme`, `tc.window`.
+Top-level names: `tc.PlotResult`, `tc.TinctureDataError`, `tc.TinctureError`, `tc.TinctureWarning`, `tc.__version__`, `tc.compass`, `tc.demo`, `tc.dose_paths`, `tc.effect_ladder`, `tc.engagement_ladder`, `tc.export`, `tc.fingerprint`, `tc.neighbourhood`, `tc.plate_atlas`, `tc.render_mpl`, `tc.retrievability`, `tc.selectivity`, `tc.theme`, `tc.window`.
 
 ## Plots
 
@@ -286,7 +286,7 @@ Download-and-cache helpers with checksums.
 A registered file is not cached and could not be downloaded.
 
 
-#### class `RemoteFile(dataset: str, name: str, url: str, md5: str | None = None, sha256: str | None = None, size: int | None = None, licence: str = '', sha512: str | None = None)`
+#### class `RemoteFile(dataset: str, name: str, url: str, md5: str | None = None, sha256: str | None = None, size: int | None = None, licence: str = '', sha512: str | None = None, manual: bool = False)`
 
 One downloadable file.
 

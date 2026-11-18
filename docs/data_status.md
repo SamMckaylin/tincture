@@ -95,18 +95,27 @@ Gene identifiers are symbols. sci-Plex features are Ensembl ids and are mapped t
 
 ## D7: NanoBRET live-cell kinase engagement (Vasta et al., Cell Chem Biol 2018)
 
-**Status: blocked (download). Facts partly verified from the article page.**
-- Paper: Vasta et al., *Cell Chem Biol* 25(2):206–214.e11 (2018), doi 10.1016/j.chembiol.2017.10.010, PMID 29174542, **PMC5814754**. Abstract (PubMed): NanoBRET profiling of **178 full-length kinases** in live cells; cellular ATP disengages several putative crizotinib targets at a clinically relevant dose. Matches the handover.
-- Supplementary files listed on the PMC page: `mmc1.pdf`, **`mmc2.xlsx`** (the only spreadsheet; presumably the tables), `mmc3.pdf`. Table format **not verified**: the file could not be downloaded (see access log).
-- To unblock: download `mmc2.xlsx` from https://pmc.ncbi.nlm.nih.gov/articles/PMC5814754/ in a browser and place it at `data/raw/nanobret/vasta2018_mmc2.xlsx`; the loader will then be written against the real layout and pin its checksum.
+**Status: verified (file supplied by the user on 2026-11-18, because the PMC download was blocked).** Placed at `data/raw/nanobret/vasta2018_mmc2.xlsx` and pinned by SHA-256 `b6348a34…77ac3` (26,112 bytes) in the registry as a manual file.
+- Paper: Vasta et al., *Cell Chem Biol* 25(2):206–214.e11 (2018), PMC5814754.
+- **The file holds occupancy, not IC50s.** Table S1 (one sheet, three header rows) has 180 kinase rows (LCK appears twice, once "Not Determined"; **178 unique kinases**, matching the paper).
+  - Columns: kinase, protein ID, NanoLuc orientation, probe, probe concentration (header shows "mM"; a mangled µ is likely), Z′, probe EC50.
+  - Then **% occupancy, two replicates each, for crizotinib and dasatinib**; values are integers, "No Binding" or "Not Determined".
+- Conditions, verified from the article text: live **HEK293** cells expressing full-length kinase–NanoLuc fusions; single doses of **1 µM crizotinib** and **100 nM dasatinib**.
+- The handover expects "NanoBRET IC50" for the cellular rung. The loader derives an **apparent IC50 = C·(1−f)/f** (1:1 binding, Hill 1) from occupancy f at dose C, labels it as model-based, and censors "No Binding".
+- **Reproduces the paper:**
+  - crizotinib: **13** kinases > 50% occupied in cells (paper: 13);
+  - dasatinib: 23 (paper: 22; one kinase sits at the 50% boundary in the replicate means).
 
 ## D8: Davis et al. 2011 kinase Kd panel (Nat Biotechnol 29:1046)
 
-**Status: blocked (download). Facts partly verified.**
-- Paper: Davis et al., *Nat Biotechnol* 29(11):1046–1051 (2011), doi 10.1038/nbt.1990, PMID 22037378. Abstract: **72 kinase inhibitors × 442 kinases** (>80% of the human catalytic kinome). The handover says "~440"; the source says 442 assays.
-- Kd values (nM) are in **Supplementary Table 4**. Per the publisher's description, blank cells mean tested but Kd > 10 µM or not detected in the 10 µM primary screen. They are censored, not missing, and must not be read as measurements.
-- Not open access on PMC: **PMC3230241**, which a search returned for this paper, is a different study (Anastassiadis et al. 2011, catalytic activity). Recorded so nobody loads the wrong table.
-- To unblock: download Supplementary Table 4 (`.xls`) from https://www.nature.com/articles/nbt.1990 in a browser and place it at `data/raw/davis/davis2011_table4.xls`.
+**Status: verified (file supplied by the user on 2026-11-18).** Placed at `data/raw/davis/davis2011_table4.xls` and pinned by SHA-256 `e47821b2…498d7` (304,640 bytes). The file's metadata title is "Assay Matrix" and its author is P. Zarrinkar, a co-author.
+- One sheet: `Accession Number`, `Entrez Gene Symbol`, `Kinase` (assay construct), then **72 inhibitors**. **442 assay rows** (the handover says ~440). **Kd in nM**, 0.016–9,900.
+- Blank cells are **censored** (Kd > 10 µM, or not detected at 10 µM) and are loaded as censored, never as missing.
+- Constructs: 13 ABL1 variants, 12 EGFR, 10 PIK3CA, 8 KIT, 7 FLT3, etc. These are mutants (flagged, excluded by default), phospho-states and single domains (wild type; the most potent per gene is kept), plus 3 non-human kinases (excluded). 379 unique genes.
+- **Reproduces the paper:** with Kd ≤ dose as "> 50% occupied" (no ATP in the binding assay), crizotinib at 1 µM gives **69** of the NanoBRET kinases (paper: 69) and dasatinib at 100 nM gives 44 (paper: 44).
+- PMC3230241, which a search returned for this paper, is a different study (Anastassiadis et al. 2011).
+
+**Kinase name mapping D7 ↔ D8** (`tincture/io/kinase_names.py`, curated, each pair checked in both files): JNK1 = MAPK8, JNK3 = MAPK10, MLTK = ZAK, SNF1LK2 = SIK2, SIK3 = KIAA0999 (QSK). **Unmatched: PKN3** (not in the Davis panel).
 
 ## D9: LINCS L1000 (GEO GSE92742, GSE70138)
 
@@ -127,6 +136,10 @@ Gene identifiers are symbols. sci-Plex features are Ensembl ids and are mapped t
 ## D4–D6, D10–D12
 
 Not started (M6–M7).
+
+## Unmatched names
+
+- Kinases: PKN3 (NanoBRET only).
 
 ## Unmatched compound names
 

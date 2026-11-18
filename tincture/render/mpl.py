@@ -32,6 +32,7 @@ from tincture.spec import (
     Panel,
     PlotSpec,
     PointMark,
+    PolygonMark,
     RectMark,
     RefLineMark,
     Scale,
@@ -647,9 +648,28 @@ def _draw_panel(fig: Figure, ax: Axes, panel: Panel) -> None:
             _draw_text(ax, m)
         elif isinstance(m, NoticeMark):
             _draw_notice(ax, m)
+        elif isinstance(m, PolygonMark):
+            from matplotlib.patches import Polygon
+
+            ec = resolve_color(m.edgecolor) if m.edgecolor else "none"
+            poly = Polygon(
+                np.column_stack([np.asarray(m.x, float), np.asarray(m.y, float)]),
+                closed=True,
+                facecolor=resolve_color(m.color),
+                alpha=m.alpha,
+                edgecolor=ec,
+                lw=0.6,
+                zorder=m.z,
+            )
+            ax.add_patch(poly)
         elif isinstance(m, ImageMark):
-            ax.imshow(np.asarray(m.image), extent=m.extent, zorder=m.z, interpolation="lanczos",
-                      aspect="auto")  # fmt: skip
+            ax.imshow(
+                np.asarray(m.image),
+                extent=m.extent,
+                zorder=m.z,
+                interpolation="lanczos",
+                aspect="auto",
+            )
         else:  # pragma: no cover
             raise TinctureSpecError(f"Unknown mark type {type(m).__name__}.")
 

@@ -3,8 +3,9 @@
 HANDOVER §4.2: compound × target × value (pIC50/pKd/pEC50) × assay type × assay context
 (cell line, ATP concentration, readout). Values are stored as **pX = −log10(molar)**;
 censored measurements (e.g. "Kd > 10 µM", not detected at the top concentration) keep the
-limit as the value with ``censored = ">"`` (true potency weaker than the limit) so they are
-never drawn as measurements.
+limit as the value with ``censored = ">"`` (true potency weaker than the limit, e.g. not
+detected up to the top dose) or ``"<"`` (more potent than the limit, e.g. already fully
+active at the lowest dose), so they are never drawn as measurements.
 """
 
 from __future__ import annotations
@@ -30,7 +31,8 @@ def px_from_molar(m: np.ndarray | float) -> np.ndarray:
 @dataclass
 class PotencyTable:
     """Long table with columns ``compound_id, target, px, assay_type`` (+ optional
-    ``censored`` ('' or '>'), ``context`` and any metadata)."""
+    ``censored`` ('', '>' = weaker than the limit, '<' = more potent than the limit),
+    ``context`` and any metadata)."""
 
     data: pd.DataFrame
     source: str = ""
@@ -43,9 +45,11 @@ class PotencyTable:
         if "censored" not in d:
             d["censored"] = ""
         d["censored"] = d["censored"].fillna("").astype(str)
-        bad = ~d["censored"].isin(["", ">"])
+        bad = ~d["censored"].isin(["", ">", "<"])
         if bad.any():
-            raise TinctureDataError("`censored` must be '' or '>' (weaker than the limit).")
+            raise TinctureDataError(
+                "`censored` must be '', '>' (weaker than the limit) or '<' (more potent)."
+            )
         unknown = sorted(set(d["assay_type"]) - set(ASSAY_TYPES))
         if unknown:
             raise TinctureDataError(

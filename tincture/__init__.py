@@ -16,6 +16,7 @@ from tincture.plots.compass import plot as compass
 from tincture.plots.demo import demo
 from tincture.plots.dose_paths import plot as dose_paths
 from tincture.plots.effect_ladder import plot as effect_ladder
+from tincture.plots.engagement import plot as engagement_ladder
 from tincture.plots.fingerprint import plot as fingerprint
 from tincture.plots.neighbourhood import plot as neighbourhood
 from tincture.plots.plate_atlas import plot as plate_atlas
@@ -35,6 +36,7 @@ __all__ = [
     "demo",
     "dose_paths",
     "effect_ladder",
+    "engagement_ladder",
     "export",
     "fingerprint",
     "neighbourhood",

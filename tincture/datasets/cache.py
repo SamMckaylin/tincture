@@ -55,6 +55,9 @@ class RemoteFile:
     size: int | None = None
     licence: str = ""
     sha512: str | None = None
+    #: The publisher blocks scripted downloads: the file must be placed by hand (``url`` is
+    #: the page to download it from in a browser).
+    manual: bool = False
 
     def __post_init__(self) -> None:
         if not (self.md5 or self.sha256 or self.sha512):
@@ -126,9 +129,10 @@ def fetch(
             "It may be truncated or a "
             f"different release. Delete it and re-download from {f.url}."
         )
-    if not download:
+    if not download or f.manual:
+        how = "in a browser (the publisher blocks scripted downloads) " if f.manual else ""
         raise DatasetUnavailable(
-            f"{f.name} is not cached. Download it from {f.url} and place it at {dest}."
+            f"{f.name} is not cached. Download it {how}from {f.url} and place it at {dest}."
         )
     dest.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{f.name}.", dir=dest.parent)

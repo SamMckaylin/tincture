@@ -332,6 +332,25 @@ class NoticeMark(Mark):
 
 
 @dataclass
+class PolygonMark(Mark):
+    """A filled polygon (e.g. the expected ATP-shift wedge of the Engagement Ladder)."""
+
+    x: ArrayLike = field(default_factory=list)
+    y: ArrayLike = field(default_factory=list)
+    color: str = "neutral"
+    alpha: float = 0.5
+    edgecolor: str | None = None
+    z: float = 0.8
+
+    def validate(self) -> None:
+        if (
+            len(np.atleast_1d(self.x)) != len(np.atleast_1d(self.y))
+            or len(np.atleast_1d(self.x)) < 3
+        ):
+            raise TinctureSpecError("PolygonMark needs ≥ 3 vertices with matching x and y.")
+
+
+@dataclass
 class ImageMark(Mark):
     """A raster image (e.g. a chemical structure drawing) placed at ``extent`` in data
     coordinates. ``image``: (H, W, 3|4) array, uint8 or float in [0, 1]."""
@@ -347,7 +366,8 @@ class ImageMark(Mark):
 
 
 MarkT = (
-    ImageMark
+    PolygonMark
+    | ImageMark
     | PointMark
     | LineMark
     | IntervalMark
