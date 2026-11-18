@@ -6,7 +6,7 @@ _Generated from docstrings by `docs/make_api.py` (tincture 0.0.1.dev0)._ Do not 
 import tincture as tc
 ```
 
-Top-level names: `tc.PlotResult`, `tc.TinctureDataError`, `tc.TinctureError`, `tc.TinctureWarning`, `tc.__version__`, `tc.compass`, `tc.demo`, `tc.dose_paths`, `tc.effect_ladder`, `tc.engagement_ladder`, `tc.export`, `tc.fingerprint`, `tc.neighbourhood`, `tc.plate_atlas`, `tc.render_mpl`, `tc.retrievability`, `tc.selectivity`, `tc.theme`, `tc.window`.
+Top-level names: `tc.ComboMatrix`, `tc.PlotResult`, `tc.TinctureDataError`, `tc.TinctureError`, `tc.TinctureWarning`, `tc.__version__`, `tc.combination_lift`, `tc.combination_surface`, `tc.compass`, `tc.demo`, `tc.dose_paths`, `tc.effect_ladder`, `tc.engagement_ladder`, `tc.export`, `tc.fingerprint`, `tc.neighbourhood`, `tc.onset_timeline`, `tc.plate_atlas`, `tc.render_mpl`, `tc.retrievability`, `tc.selectivity`, `tc.theme`, `tc.window`.
 
 ## Plots
 
@@ -131,6 +131,95 @@ Table of the chosen features (in drawing order) and transcriptome-wide counts.
 #### `volcano_spec(sig: Signature, pvalues: np.ndarray | None, symbols: np.ndarray | None, alpha: float = 0.05) -> PlotSpec`
 
 Classic volcano: shrunk log2 FC vs −log10 p, q < alpha coloured.
+
+### `tincture.plots.window`
+
+Window: is there a dose that works without the toxicity? (HANDOVER §5.7)
+
+#### `tc.window(on: DoseResponse, tox: DoseResponse | Sequence[DoseResponse], cmax: tuple[float, float] | None = None, on_frac: float = 0.9, tox_drop: float = 0.1, n_boot: int = 200, compound: str | None = None, title: str = 'Window', footer: Sequence[str] = ()) -> PlotResult`
+
+Window plot. ``cmax``: free Cmax range in molar (low, high), drawn as a band; omit if
+no exposure data are available (never pass a guess).
+
+#### class `CurveCall(dr: DoseResponse, hill: HillFit, ec: float, ec_ci: tuple[float, float], problems: list[str] = <factory>, censored: bool = False)`
+
+Fit, effective concentration and verdict for one curve.
+
+- `usable`
+
+### `tincture.plots.neighbourhood`
+
+Neighbourhood Card: which annotated compounds does this one resemble? (HANDOVER §5.9)
+
+#### `tc.neighbourhood(query: Signature, library: ReferenceLibrary, smiles: str | None = None, k: int = 10, alpha: float = 0.05, query_replicates: np.ndarray | None = None, name: str | None = None, null: np.ndarray | None = None, null_kind: str = 'all', title: str = 'Neighbourhood Card', footer: Sequence[str] = ()) -> PlotResult`
+
+Neighbourhood Card for ``query`` against an annotated ``library``.
+
+``query_replicates``: (n, features) signatures of the same compound (e.g. other cell
+lines) for bootstrap intervals; otherwise the query's SEs are used if present.
+``null``: precomputed library-pair similarities (reuse across many queries).
+``null_kind``: ``"all"`` library pairs (HANDOVER default) or ``"unrelated"`` pairs (pairs
+sharing an MoA annotation removed; see :mod:`tincture.stats.neighbours`).
+
+#### `structure_image(smiles: str | None, size: int = 360) -> np.ndarray | None`
+
+RGBA image of the molecule, or None if no SMILES / RDKit unavailable / unparsable.
+
+### `tincture.plots.selectivity`
+
+Selectivity Spectrum: how specific is this compound? (HANDOVER §5.8)
+
+#### `tc.selectivity(table: PotencyTable, compound: str, intended: str | Sequence[str], cmax: tuple[float, float] | None = None, allow_mixed: bool = False, panel_size: int | None = None, panel_name: str = 'targets', top_labels: int = 8, title: str = 'Selectivity Spectrum', footer: Sequence[str] = ()) -> PlotResult`
+
+Selectivity Spectrum for one compound. ``cmax``: free Cmax range (molar); never pass
+a guess. ``panel_size``: size of the full family (e.g. ~518 human kinases) for the
+coverage footer.
+
+### `tincture.plots.engagement`
+
+Engagement Ladder: does potency hold up from protein to cell to phenotype, and where does
+it break? (HANDOVER §5.10)
+
+#### `tc.engagement_ladder(table: PotencyTable, pairs: Sequence[tuple[str, str]], km_atp: Mapping[str, float] | None = None, atp: tuple[float, float] = (0.001, 0.005), title: str = 'Engagement Ladder', footer: Sequence[str] = ()) -> PlotResult`
+
+Engagement Ladder for (compound, target) ``pairs``.
+
+``table`` needs a ``rung`` column with values from :data:`RUNGS`; optional columns
+``px_lo``/``px_hi`` (interval), ``cell_system`` and ``label``. ``km_atp``: ATP Km
+(molar) per target, for the Cheng–Prusoff wedge; never pass a guess.
+
+#### `atp_shift(km_atp: float, atp: tuple[float, float] = (0.001, 0.005)) -> tuple[float, float]`
+
+Expected Cheng–Prusoff shift (log10) for ATP-competitive inhibitors.
+
+### `tincture.plots.combination`
+
+Combination Surface and Combination Lift (HANDOVER §5.11).
+
+#### `tc.combination_surface(cm: ComboMatrix, model: Literal['bliss', 'zip', 'hsa'] = 'bliss', single_agent: Literal['fitted', 'observed'] = 'fitted', noise_sd: float | None = None, cmax_a: tuple[float, float] | None = None, cmax_b: tuple[float, float] | None = None, min_excess: float = 0.1, alpha: float = 0.05, n_boot: int = 200, title: str = 'Combination Surface', footer: Sequence[str] = ()) -> PlotResult`
+
+Combination Surface for one full concentration matrix. ``cmax_a``/``cmax_b``: free
+Cmax ranges (molar) of each drug; never pass a guess. ``noise_sd``: well-level SD of
+viability, used only when there is a single replicate matrix.
+
+#### `lift_table(d: pd.DataFrame, group: str | None = None, facet: str | None = None) -> pd.DataFrame`
+
+Per cell line (and facet): mean viabilities over replicates, ΔEmax with a t-interval
+when there are ≥ 2 replicates. ``fit_ok`` (optional, bool) marks usable fits.
+
+#### `tc.combination_lift(table: pd.DataFrame, drug_a: str, drug_b: str, group: str | None = None, facet: str | None = None, threshold: float = 0.2, model_note: str = '', title: str = 'Combination Lift', footer: Sequence[str] = ()) -> PlotResult`
+
+Combination Lift across cell lines. ``table``: one row per cell line × replicate (×
+facet, e.g. anchor concentration) with viabilities ``single_a``, ``single_b``, ``combo``
+at Emax and optional ``fit_ok``, group and facet columns.
+
+### `tincture.plots.onset`
+
+Onset Timeline: what happens first, and what follows? (HANDOVER §5.12)
+
+#### `tc.onset_timeline(table: pd.DataFrame, feature: str = 'feature', threshold: float = 0.0, alpha: float = 0.05, time_unit: str = 'h', score_label: str = 'effect score', style: Literal['gantt', 'horizon'] = 'gantt', title: str = 'Onset Timeline', footer: Sequence[str] = ()) -> PlotResult`
+
+Onset Timeline from a long table (``feature``, ``time``, ``score``, ``q`` or ``p``).
 
 ## Results and export
 
@@ -274,6 +363,112 @@ GDSC2 raw wells as a :class:`PlateTable` (value = raw luminescence intensity).
 Plates are ordered by scan date (``plate_order``), which is what control-drift
 analysis needs. ``tag`` keeps the original GDSC label (e.g. to choose NC-1 vs B for
 Z′). Doses are molar.
+
+### `tincture.io.lincs`
+
+Loader for LINCS L1000 phase II, Level 5 signatures (GEO GSE70138).
+
+#### `parse_dose(s: object) -> float`
+
+``"10.0 um"`` → 1e-5 (molar); unknown or control doses (``-666``) → NaN.
+
+#### `build_landmark_cache(root: Path | None = None, out: Path | None = None, download: bool = True, block: int = 4000) -> Path`
+
+Download Level 5, keep the 978 landmark genes, write the h5ad cache.
+
+#### `load_lincs(cell_lines: list[str] | None = None, pert_type: str | None = 'trt_cp', time: float | None = 24.0, min_tas: float | None = None, cache: Path | None = None, build: bool = False) -> ad.AnnData`
+
+LINCS GSE70138 Level 5 landmark signatures (signatures × 978 genes) with metadata
+(``pert_id``, ``pert_iname``, ``cell_id``, ``dose`` in molar, ``time`` in hours, ``tas``,
+``canonical_smiles``, ``inchi_key``).
+
+### `tincture.io.davis`
+
+Loader for Davis et al. 2011 kinase binding constants (Nat Biotechnol 29:1046; D8).
+
+#### `classify(construct: str) -> str`
+
+``"mutant"``, ``"nonhuman"`` or ``"wildtype"`` for a Davis assay construct name.
+
+#### `load_davis2011(compounds: list[str] | None = None, per_gene: bool = True, root: Path | None = None) -> PotencyTable`
+
+Davis 2011 Kd values as a :class:`PotencyTable` (assay type ``Kd``).
+
+### `tincture.io.nanobret`
+
+Loader for NanoBRET live-cell kinase occupancy (Vasta et al., Cell Chem Biol 2018; D7).
+
+#### `read_table_s1(root: Path | None = None) -> pd.DataFrame`
+
+Table S1 as a long table: kinase, compound, replicate, occupancy (%, NaN = not
+determined), no_binding flag.
+
+#### `occupancy(root: Path | None = None) -> pd.DataFrame`
+
+Mean occupancy (fraction) per compound × kinase over determined replicates (kinases
+listed twice keep the row with determined values).
+
+#### `apparent_ic50(f: np.ndarray, dose: float) -> np.ndarray`
+
+C·(1−f)/f with f clipped to [F_MIN, F_MAX] (1:1 binding, Hill 1).
+
+#### `load_nanobret(root: Path | None = None, davis_names: bool = True) -> PotencyTable`
+
+Apparent cellular IC50s as a :class:`PotencyTable` (assay type ``IC50_cell``).
+
+``davis_names``: rename kinases to Davis 2011 gene symbols (curated synonyms in
+:mod:`tincture.io.kinase_names`) so the two panels join; the original name is kept in
+``nanobret_name``.
+
+### `tincture.io.kinase_names`
+
+Curated kinase name synonyms between panels (HANDOVER §6.2: map by curated synonyms
+when no shared identifier exists; unmatched names are listed in docs/data_status.md).
+
+### `tincture.io.gdsc_combo`
+
+GDSC combination screens: full 7×7 matrices (D5, Bashi et al. 2024) and anchored 2×7
+screens (D4, Jaaks et al. 2022; D6, Vis et al. 2024). File facts in docs/data_status.md.
+
+#### `bashi_results() -> pd.DataFrame`
+
+All per-screen matrix summaries, with a ``screen`` column (e.g. 'gdsc-008').
+
+#### `load_bashi_matrices(drug_1: str, drug_2: str, cell_lines: Sequence[str] | None = None) -> dict[str, ComboMatrix]`
+
+7×7 matrices for one drug pair (orientation as screened: drug A = lib1).
+
+#### `load_jaaks2022(screen: str = 'original') -> pd.DataFrame`
+
+Jaaks et al. 2022 fitted anchored data (one row per anchor conc × library × line ×
+replicate plate).
+
+#### `load_vis2024() -> pd.DataFrame`
+
+Vis et al. 2024 pan-cancer anchored fitted data (Data S1).
+
+#### `cell_model_annotations() -> pd.DataFrame`
+
+Cell Model Passports model list (model_id = SIDM, msi_status, tissue …).
+
+#### `anchored_lift_table(d: pd.DataFrame, anchor: str, library: str, max_rmse: float | None = None) -> pd.DataFrame`
+
+Lift input from a GDSC anchored table for one anchor × library pair: viabilities at
+the highest library concentration (anchor alone, library Emax, combination Emax) per
+cell line × anchor concentration × replicate. ``fit_ok`` is False when any value is
+missing or (if given) a curve RMSE exceeds ``max_rmse``.
+
+### `tincture.io.mixseq`
+
+MIX-seq (McFarland, Paolella et al., Nat Commun 2020; figshare 10298696 v3). Facts in
+docs/data_status.md (D10).
+
+#### `pseudobulk_trametinib_tc(min_cells: int = 10) -> tuple[pd.DataFrame, pd.DataFrame]`
+
+Returns ``(counts, groups)``: counts = genes (symbol index, Ensembl in column
+``ensembl``… dropped) × groups; groups = one row per column with ``depmap_id``,
+``condition`` (DMSO / trametinib / untreated), ``time_h`` and ``n_cells``. Groups with
+fewer than ``min_cells`` cells are dropped.
 
 ## Datasets and caches
 
@@ -503,6 +698,24 @@ Explicitly add a ``dose`` column for data without dose information.
 With the default (NaN) the table will still fail validation: this is deliberate so
 that dose-free data can only enter dose-aware plots after the user states a dose.
 
+### `tincture.model.potency`
+
+PotencyTable: compound × target (or rung) potency with assay type and context.
+
+#### class `PotencyTable(data: pd.DataFrame, source: str = '')`
+
+Long table with columns ``compound_id, target, px, assay_type`` (+ optional
+``censored`` ('', '>' = weaker than the limit, '<' = more potent than the limit),
+``context`` and any metadata).
+
+- `from_molar(cls, df: pd.DataFrame, value_col: str = 'value_molar', source: str = '') -> PotencyTable`
+- `compound(compound_id: str) -> pd.DataFrame`
+- `assay_types`
+
+### `tincture.model.combo`
+
+ComboMatrix: drug A × drug B concentration grid of viability (HANDOVER §4.2).
+
 ## Statistics
 
 ### `tincture.stats.signatures`
@@ -724,6 +937,64 @@ Positions and bend test for one compound's signatures (any order; sorted by dose
 
 ``y_values`` overrides the y axis (cell-loss axis): one value per signature, no draws on
 y (cell counts carry their own, smaller uncertainty, not modelled here).
+
+### `tincture.stats.hill`
+
+4-parameter log-logistic (Hill) fits with bootstrap uncertainty.
+
+#### `fit_4pl(dose: np.ndarray, response: np.ndarray, start: FourPL | None = None) -> HillFit`
+
+Fit a 4PL to treated points (dose > 0, molar). ``start`` warm-starts a single
+optimisation (used by the bootstrap); otherwise six starting points are tried.
+
+#### `ec_relative(fit: FourPL, frac: float) -> float`
+
+Concentration giving ``frac`` of the curve's span (EC90: frac = 0.9).
+
+#### `ec_drop(fit: FourPL, drop: float) -> float`
+
+Concentration at which the response is ``drop`` below the top (inf if never).
+
+#### `median_of_units(dose: np.ndarray, response: np.ndarray, cluster: np.ndarray) -> tuple[np.ndarray, np.ndarray]`
+
+Per-dose median over units of each unit's mean response (dose > 0).
+
+#### `bootstrap_4pl(dose: np.ndarray, response: np.ndarray, n_boot: int = 200, seed: int = 0, cluster: np.ndarray | None = None) -> HillBootstrap`
+
+Refit ``n_boot`` times on points resampled with replacement within each dose, or,
+with ``cluster``, on the median-of-units curve of resampled units.
+
+### `tincture.stats.neighbours`
+
+Nearest annotated neighbours of a query signature, with an empirical null.
+
+#### `library_null(lib: ReferenceLibrary, kind: str = 'all', key: str = 'moa', max_pairs: int = 2000000, seed: int = 0) -> np.ndarray`
+
+Cosine similarities of distinct library pairs (subsampled above ``max_pairs``).
+
+``kind="unrelated"`` keeps only pairs whose ``annotations[key]`` differ (pairs with a
+missing annotation are kept).
+
+#### `neighbours(query: np.ndarray, lib: ReferenceLibrary, query_replicates: np.ndarray | None = None, query_se: np.ndarray | None = None, null: np.ndarray | None = None, n_boot: int = 200, seed: int = 0, null_kind: str = 'all') -> NeighbourResult`
+
+Rank library references by cosine similarity to ``query`` (aligned to lib.features).
+
+### `tincture.stats.synergy`
+
+Combination effect models: Bliss (default), HSA and ZIP, with honest uncertainty.
+
+#### `synergy(cm: ComboMatrix, model: Model = 'bliss', single_agent: Literal['fitted', 'observed'] = 'fitted', noise_sd: float | None = None, n_boot: int = 200, alpha: float = 0.05, min_excess: float = 0.1, ceiling: float = 0.9, seed: int = 0) -> SynergyResult`
+
+Excess over a reference model on a full concentration matrix.
+
+### `tincture.stats.onset`
+
+Onset, peak and resolution of a response over sparse time points (HANDOVER §5.12).
+
+#### `onset_table(d: pd.DataFrame, feature: str = 'feature', threshold: float = 0.0, alpha: float = 0.05) -> tuple[list[Onset], pd.DataFrame]`
+
+Onsets for every feature. ``d`` has columns ``feature``, ``time``, ``score`` and ``q``
+(or ``p``).
 
 ## Theme
 

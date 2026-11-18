@@ -28,10 +28,30 @@ SECTIONS: list[tuple[str, str, list[str]]] = [
             "tincture.plots.dose_paths",
             "tincture.plots.fingerprint",
             "tincture.plots.effect_ladder",
+            "tincture.plots.window",
+            "tincture.plots.neighbourhood",
+            "tincture.plots.selectivity",
+            "tincture.plots.engagement",
+            "tincture.plots.combination",
+            "tincture.plots.onset",
         ],
     ),
     ("Results and export", "", ["tincture.result", "tincture.export"]),
-    ("Data loaders", "", ["tincture.io.sciplex", "tincture.io.prism", "tincture.io.gdsc"]),
+    (
+        "Data loaders",
+        "",
+        [
+            "tincture.io.sciplex",
+            "tincture.io.prism",
+            "tincture.io.gdsc",
+            "tincture.io.lincs",
+            "tincture.io.davis",
+            "tincture.io.nanobret",
+            "tincture.io.kinase_names",
+            "tincture.io.gdsc_combo",
+            "tincture.io.mixseq",
+        ],
+    ),
     ("Datasets and caches", "", ["tincture.datasets.cache", "tincture.datasets.genesets"]),
     (
         "Data model",
@@ -43,6 +63,8 @@ SECTIONS: list[tuple[str, str, list[str]]] = [
             "tincture.model.dose_response",
             "tincture.model.plate",
             "tincture.model.measurements",
+            "tincture.model.potency",
+            "tincture.model.combo",
         ],
     ),
     (
@@ -56,6 +78,10 @@ SECTIONS: list[tuple[str, str, list[str]]] = [
             "tincture.stats.zprime",
             "tincture.stats.projection",
             "tincture.stats.paths",
+            "tincture.stats.hill",
+            "tincture.stats.neighbours",
+            "tincture.stats.synergy",
+            "tincture.stats.onset",
         ],
     ),
     ("Theme", "", ["tincture.theme.presets", "tincture.theme.colorblind"]),
@@ -71,7 +97,16 @@ INTERNAL = {
     "place_labels",
 }
 
-TOP_LEVEL = {
+TOP_LEVEL: dict[str, str | dict[str, str]] = {
+    "tincture.plots.window": "window",
+    "tincture.plots.neighbourhood": "neighbourhood",
+    "tincture.plots.selectivity": "selectivity",
+    "tincture.plots.engagement": "engagement_ladder",
+    "tincture.plots.combination": {
+        "surface": "combination_surface",
+        "lift": "combination_lift",
+    },
+    "tincture.plots.onset": "onset_timeline",
     "tincture.plots.retrievability": "retrievability",
     "tincture.plots.plate_atlas": "plate_atlas",
     "tincture.plots.compass": "compass",
@@ -150,8 +185,10 @@ def _module_block(modname: str) -> list[str]:
     if doc:
         lines += [doc.split("\n\n")[0], ""]
     for name, obj in _members(mod):
-        if modname in TOP_LEVEL and name == "plot":
-            title = f"`tc.{TOP_LEVEL[modname]}{_signature(obj)}`"
+        top = TOP_LEVEL.get(modname)
+        top_name = top.get(name) if isinstance(top, dict) else (top if name == "plot" else None)
+        if top_name:
+            title = f"`tc.{top_name}{_signature(obj)}`"
         elif inspect.isclass(obj):
             # constructor signature only where the class defines one (stable across Pythons)
             own_init = "__init__" in vars(obj) or hasattr(obj, "__dataclass_fields__")

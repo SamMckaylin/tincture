@@ -12,6 +12,9 @@ from tincture import theme
 from tincture._version import __version__
 from tincture.errors import TinctureDataError, TinctureError, TinctureWarning
 from tincture.export import export
+from tincture.model.combo import ComboMatrix
+from tincture.plots.combination import lift as combination_lift
+from tincture.plots.combination import surface as combination_surface
 from tincture.plots.compass import plot as compass
 from tincture.plots.demo import demo
 from tincture.plots.dose_paths import plot as dose_paths
@@ -19,6 +22,7 @@ from tincture.plots.effect_ladder import plot as effect_ladder
 from tincture.plots.engagement import plot as engagement_ladder
 from tincture.plots.fingerprint import plot as fingerprint
 from tincture.plots.neighbourhood import plot as neighbourhood
+from tincture.plots.onset import plot as onset_timeline
 from tincture.plots.plate_atlas import plot as plate_atlas
 from tincture.plots.retrievability import plot as retrievability
 from tincture.plots.selectivity import plot as selectivity
@@ -27,11 +31,14 @@ from tincture.render.mpl import render_mpl
 from tincture.result import PlotResult
 
 __all__ = [
+    "ComboMatrix",
     "PlotResult",
     "TinctureDataError",
     "TinctureError",
     "TinctureWarning",
     "__version__",
+    "combination_lift",
+    "combination_surface",
     "compass",
     "demo",
     "dose_paths",
@@ -40,6 +47,7 @@ __all__ = [
     "export",
     "fingerprint",
     "neighbourhood",
+    "onset_timeline",
     "plate_atlas",
     "render_mpl",
     "retrievability",

@@ -17,6 +17,8 @@ Ground rules: no data is committed (`data/` is git-ignored), no data is invented
 | 2026-11-18 | **D7 download blocked.** PMC (`pmc.ncbi.nlm.nih.gov`) answers file requests for PMC5814754 `mmc2.xlsx` with a proof-of-work browser challenge ("Preparing to download …"), not the file. Not worked around. PMC's old OA service (`www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi`) returns 404 and the PMC FTP no longer lists article packages. |
 | 2026-11-18 | **D8 download blocked.** `www.nature.com/articles/nbt.1990` redirects scripts to the `idp.nature.com` login handshake; fetching the supplementary files directly was denied by this session's permission policy. Not worked around. |
 | 2026-11-18 | `eutils.ncbi.nlm.nih.gov`, `pubmed.ncbi.nlm.nih.gov`, `cran.r-project.org` and `www.cell.com` are not allowed (proxy 403). |
+| 2026-11-18 | M7: `gdsc-combinations.depmap.sanger.ac.uk` and `www.ebi.ac.uk` (Europe PMC) added (user-approved environment change). The GDSC Combinations portal is a Dash app whose download links are built by its JavaScript; querying its internal endpoints was refused by this session's permission policy, so only its public `Matrix_documentation.pdf` was read. All M7 data came from figshare and Europe PMC instead. |
+| 2026-11-18 | Paper full texts for M7 (Jaaks 2022 PMC8891012, Bashi 2024 PMC11061612, Vis 2024 PMC11384948, McFarland 2020 PMC7453022) read through the Europe PMC REST API (`fullTextXML`), which serves open-access XML to scripts. |
 | 2026-11-16 | Nature, Cell and ACS author-guideline sites unreachable; journal presets are unverified (see `docs/design/journal_presets.md`). |
 
 ## D1: sci-Plex (Srivatsan et al., Science 2020), GEO GSE139944
@@ -133,9 +135,58 @@ Gene identifiers are symbols. sci-Plex features are Ensembl ids and are mapped t
 - **MoA coverage via PRISM:** 616 of 1,796 compounds match a PRISM `moa` by Broad ID core; 303 MoA labels, **63 with ≥ 3 compounds** (largest: EGFR inhibitor 18, HDAC inhibitor 14, topoisomerase inhibitor 12, MEK inhibitor 11, PI3K inhibitor 11).
 - Level 5 matrix: downloading `GSE70138_Broad_LINCS_Level5_COMPZ_n118050x12328_2017-03-06.gctx.gz` (5.0 GB). Only the 978 landmark rows will be kept, in a local cache of about 0.5 GB.
 
-## D4–D6, D10–D12
+## Kinase ATP Km values (for the Engagement Ladder ATP wedge)
 
-Not started (M6–M7).
+**Status: three values verified against open-access full text (2026-11-18); no single consistent source available.** Vendor tables (Thermo SelectScreen, Reaction Biology, Carna, Eurofins) were unreachable (proxy 403 on every vendor host). Panel papers either assume a fixed Km (Anastassiadis 2011: "a Km,ATP of 10 µM for all kinases") or only state that ATP was run "at Km app" without numbers (a JCI 2019 SelectScreen supplement). Full texts read from the PMC open-access copy on `pmc-oa-opendata.s3.amazonaws.com`.
+
+| Kinase | Km,ATP | Construct / conditions | Source |
+|---|---|---|---|
+| ABL1 | **9.78 ± 0.14 µM** | ABL "core" (N-cap–SH3–SH2–kinase, Sf9, His-tag); ADP Quest; 10 mM MgCl2; peptide at its Km | Grover et al., PLoS One 2015, PMC4519180: "For wild type ABL, we obtained Km values of 9.78 ± 0.14 μM … for ATP" |
+| ALK | **0.134 ± 0.007 mM** (unphosphorylated), **0.159 ± 0.012 mM** (autophosphorylated) | kinase domain 1090–1416, His6, Sf9; 32P; 10 mM MgCl2, no Mn2+; peptide 1 mM; 25 °C | Bresler et al., Sci Transl Med 2011, PMC3319004, Table 1 ("Determined at 1mM peptide"). The authors note these are "higher than reported from Mn2+-containing assays". |
+| MET | **60 ± 12 µM** (phosphorylated), **200 ± 38 µM** (unphosphorylated) | catalytic domain 956–1391, His6, Sf21; HTRF; 10 mM MgCl2; peptide 1 µM; 25 °C | Behshad et al., Curr Chem Genomics 2010, PMC2885599, Table 1 |
+
+Caveats: three labs, three constructs and assay formats, so the values are not directly comparable; ALK and MET depend on phosphorylation state (MET 3.3-fold). Values for other kinases were not found or conflicted (KIT: 9 µM vs 370 µM). Not yet applied to CS6.
+
+## D4: GDSC anchored combinations (Jaaks, Coker et al., Nature 2022)
+
+**Status: verified, files cached and MD5-checked (figshare).**
+
+- Sources (all named "Raw data supporting Jaaks and Coker et al., 2022"): fitted data, original screen (figshare 16843597, `Original screen_All tissues_fitted data.csv`, 198,893,607 bytes); fitted data, validation screen (16843600, 11,774,397 bytes); glossary (16895371, `Glossary.xlsx`). Raw plate data (19141916, 19141922) and day-1 plates exist but are not needed.
+- **Licence conflict:** the figshare licence field says **CC BY 4.0**, but every item's description says "non-exclusive, non-transferable right to use data files for internal proprietary research and educational purposes … Excluded … resale … or provision of commercial services." Treated as the restrictive terms: outputs stay local, nothing GDSC-derived is committed.
+- Handover facts confirmed: **296,707 measurements, 125 cell lines (breast 156,065 rows, colon 74,525, pancreas 66,117), 2,025 combinations**; **2 × 7 anchored design** (anchor at two concentrations; library 7-point, 1,000-fold, "two 2-fold dilution steps from the highest used concentration, all other dilution steps are 4-fold", Extended Data Fig. 1e).
+- Columns (46, glossary checked): per anchor-concentration × library × cell line: `ANCHOR_VIABILITY`, `LIBRARY_EMAX`, `LIBRARY_XMID(_uM)`, `SYNERGY_OBS_EMAX`, `SYNERGY_EXP_EMAX` (**Bliss**), `SYNERGY_DELTA_EMAX` (= expected − observed), `SYNERGY_DELTA_XMID` (log2), `Synergy` (bool), plus fit RMSEs. Viabilities are 0–1. `ANCHOR_CONC` is text in the original screen because a few anchors are two-drug composites written as `0.125|0.003` and `0.5|0.03`; the loader parses it as a number (composites become NaN and are not used).
+- **Synergy definition (paper, Methods):** synergistic if the combination IC50 < 2× the highest library concentration and ΔIC50 ≥ 3 (log2, 8-fold) or ΔEmax ≥ 0.2 over Bliss; replicates summarised as synergistic if ≥ half are.
+- **CS4 ground truth (paper):** in colon, TOP1 inhibition was screened as **camptothecin** (irinotecan in pancreas), and AZD7762 (CHEK1/2) + camptothecin is synergistic, more in MSS than MSI lines (n = 31 vs 15) and in KRAS–TP53 double-mutant lines. In the data: AZD7762 (anchor 0.0625 and 0.25 µM) × camptothecin, and camptothecin (anchor 0.0025, 0.025 µM) × AZD7762, in 43–45 colon lines.
+- **MSI status:** from Cell Model Passports `model_list_latest.csv.gz` (downloaded 2026-11-18, pinned by SHA-256): **30 MSS, 15 MSI** of the 45 colon lines; the paper reports 31 MSS (annotations may have been revised since).
+
+## D5: GDSC full-matrix combinations (Bashi et al., Cancer Discov 2024)
+
+**Status: verified, files cached and MD5-checked (figshare).**
+
+- The paper's Data Availability names **figshare project 163378**; the GDSC Combinations portal is the browsing front-end. Licence on figshare: **CC BY 4.0** (no extra restriction in the descriptions). GDSC-derived outputs are still kept local, as for D3/D4.
+- Files: `matrix_well_stats_GDSC_007_010_plus_Spiper1.zip` (figshare 25266697; 241,088,863 bytes; unzips to five per-screen CSVs, 2.1 GB, plus `Glossary_combo_well_stats.pdf`) = per-well library/anchor responses, combination response, HSA and Bliss expected values and excess; per-screen summaries `gdsc-007…010_matrix_results.csv`, `sandpiper-01_matrix_results.csv`.
+- Per-well file semantics (from `Glossary_combo_well_stats.pdf`, inside the zip): one row per combination well; `lib1_conc`/`lib2_conc` in µM with dose tags D1 (highest) … D7; `inhibition` = 1 − viability of the combination well (**raw, not fitted**); `lib*_y` / `lib*_yhat` = measured / fitted **monotherapy** inhibition at that concentration; `HSA` = max(lib1_yhat, lib2_yhat); `Bliss_additivity` = lib1_yhat + lib2_yhat − lib1_yhat·lib2_yhat (checked numerically on the first rows); replicate matrices are separate `BARCODE` × `cmatrix`.
+- Handover facts confirmed in the paper: **109 combinations, 755 cell lines, 7 × 7 matrix**, 1,000-fold range per drug. The portal's methods note (`Matrix_documentation.pdf`) defines **HSA excess = E1,2 − max(E1, E2)** and **Bliss excess = E1,2 − (E1 + E2 − E1E2)** on inhibition, states that there is **no fitted combination surface** (so no Loewe), and reports synergy over the full matrix and over the best 3 × 3 window.
+
+## D6: GDSC pan-cancer anchored (Vis et al., Cell Rep Med 2024)
+
+**Status: verified, file cached (SHA-256 computed on first download).**
+
+- Data Availability: "supplied as supplemental data with this publication". Fetched as the open-access supplement zip from Europe PMC (53,745,336 bytes); Data S1 (`mmc7.zip`) contains `pancan_combi_fitted_data_jan21.tsv.gz` (same column scheme as D4) and `pancan_col_description.tsv`. Table S1A (`mmc2.xlsx`) is the Cell Model Passports annotation of the lines.
+- Checked in the data (137,738 rows, 68 columns): **51 anchor–library pairs** (48 unordered drug pairs, as some are screened in both orientations), matching the paper's 51 combinations; **762 distinct `CELL_LINE_NAME`s** vs 757 in the paper (likely naming variants or lines dropped in QC; not resolved). Anchored design, same metric columns as D4 (`SYNERGY_DELTA_EMAX` etc.).
+
+## D10: MIX-seq (McFarland, Paolella et al., Nat Commun 2020)
+
+**Status: verified, files cached and MD5-checked (figshare 10298696 v3, CC BY 4.0).**
+
+- **Time course exists for trametinib only:** experiment 5, `trametinib_tc_expt5.zip` (291,873,754 bytes; 10x matrix 1.2 GB unzipped), 24 cell lines, trametinib 0.1 µM vs DMSO, hash-tagged at **3, 6, 12, 24 and 48 h** (plus Untreated 48 h). Supplementary Table 2 (experiment metadata) lists 3, 6, 12, 24, 48 h; **Table 3 (drug metadata) lists 3, 6, 9, 12, 24, 48 h, but there is no 9 h hash tag in the data**, so the time points are those of Table 2.
+- QC-passing singlets (`cell_quality == "normal"`) per hash: 915–2,256 cells per condition.
+- Pseudobulk (CS8): UMI counts summed per cell line × hash tag over QC-passing singlets, streamed from the zip (19 s); cell counts per condition reproduce the QC table above (e.g. DMSO 3 h: 1,098). Cached under `data/processed/mixseq/`. Each time point has a matched DMSO group for 23–24 lines.
+- Other drugs have 6 and 24 h only (bortezomib, idasanutlin, BRD3379: two time points) or 24 h only.
+
+## D11–D12
+
+Not started (backlog).
 
 ## Unmatched names
 

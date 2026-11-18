@@ -174,3 +174,113 @@ DAVIS2011_TABLE4 = RemoteFile(
     licence="Supplementary Table 4 of Davis et al., Nat Biotechnol 2011",
     manual=True,
 )
+
+
+# --- D4: GDSC anchored combinations (Jaaks, Coker et al., Nature 2022), figshare. The
+# figshare licence field says CC BY 4.0, but every item's description restricts use to
+# internal research and education (no resale, no commercial services): treated as the
+# restrictive GDSC terms, so outputs stay local (docs/data_status.md).
+_JAAKS_LICENCE = (
+    "Jaaks et al. 2022 (figshare): internal research and educational use only; "
+    "no resale or commercial services"
+)
+
+
+def _jaaks(file_id: int, name: str, size: int, md5: str) -> RemoteFile:
+    return RemoteFile(
+        "jaaks2022", name, f"{_FIG}{file_id}", md5=md5, size=size, licence=_JAAKS_LICENCE
+    )
+
+
+JAAKS2022: dict[str, RemoteFile] = {
+    "glossary": _jaaks(34006715, "Glossary.xlsx", 12193, "8706ea6fbab6dce6210697e8849c6dbf"),
+    "original_fitted": _jaaks(
+        34006655,
+        "Original screen_All tissues_fitted data.csv",
+        198893607,
+        "786589e5eb556670cc7d24356487f8fd",
+    ),
+    "validation_fitted": _jaaks(
+        34007258,
+        "Validation screen_All tissues_fitted data.csv",
+        11774397,
+        "7cbc398261624ff3d9965669c1645a51",
+    ),
+}
+
+# --- D10: MIX-seq (McFarland, Paolella et al., Nat Commun 2020), figshare 10298696 v3
+_MIX_LICENCE = "CC BY 4.0 (figshare 10.6084/m9.figshare.10298696.v3)"
+
+
+def _mix(file_id: int, name: str, size: int, md5: str) -> RemoteFile:
+    return RemoteFile("mixseq", name, f"{_FIG}{file_id}", md5=md5, size=size, licence=_MIX_LICENCE)
+
+
+MIXSEQ: dict[str, RemoteFile] = {
+    "readme": _mix(24848579, "README.txt", 5515, "681292e2dc103b37f8ebb5d3e3b16e34"),
+    "supp_tables": _mix(
+        18716510, "Supplementary Tables.xlsx", 87927, "42b8df97cfb407c81619c877a03f2e47"
+    ),
+    "trametinib_tc": _mix(
+        20000609, "trametinib_tc_expt5.zip", 291873754, "97b3712228cc1bf474d5b0fa2777c48a"
+    ),
+}
+
+# --- D5: GDSC full 7x7 matrix combinations (Bashi et al., Cancer Discov 2024), figshare
+# project 163378 (named in the paper's Data Availability statement). CC BY 4.0 on figshare;
+# GDSC data are still treated as internal-use (outputs stay local, docs/data_status.md).
+_BASHI_LICENCE = "CC BY 4.0 (figshare project 163378; Bashi et al., Cancer Discov 2024)"
+
+
+def _bashi(file_id: int, name: str, size: int, md5: str) -> RemoteFile:
+    return RemoteFile(
+        "bashi2024", name, f"{_FIG}{file_id}", md5=md5, size=size, licence=_BASHI_LICENCE
+    )
+
+
+BASHI2024: dict[str, RemoteFile] = {
+    "well_stats": _bashi(
+        45451363,
+        "matrix_well_stats_GDSC_007_010_plus_Spiper1.zip",
+        241088863,
+        "ff3dab95ad59a1c956e3b11c397dcbd8",
+    ),
+    "gdsc007": _bashi(
+        39806602, "gdsc-007_matrix_results.csv", 14947830, "0223b9ad0921ac4974bd4479aea8853b"
+    ),
+    "gdsc008": _bashi(
+        39806650, "gdsc-008_matrix_results.csv", 16897258, "ad402a31c2749652632e2dd94e57c6ee"
+    ),
+    "gdsc009": _bashi(
+        39806656, "gdsc-009_matrix_results.csv", 15492311, "9119449ae1d9567a876ab8b87ca4005a"
+    ),
+    "gdsc010": _bashi(
+        44311796, "gdsc-010_matrix_results.csv", 8026089, "a50cab826d6fda7853a54bad97f23e15"
+    ),
+    "sandpiper01": _bashi(
+        39806584, "sandpiper-01_matrix_results.csv", 1293674, "3d3bdc4765989c0ab0f7abf781394cb4"
+    ),
+}
+
+# --- D6: GDSC pan-cancer anchored (Vis et al., Cell Rep Med 2024), open-access supplement
+# (Data S1 holds pancan_combi_fitted_data_jan21.tsv.gz). Europe PMC serves the supplement as
+# one zip and publishes no checksum: SHA-256 computed on the first download (2026-11-18).
+VIS2024_SUPPLEMENT = RemoteFile(
+    "vis2024",
+    "PMC11384948_supplementary.zip",
+    "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC11384948/supplementaryFiles",
+    sha256="5f19097023fbc446269b1c6f0d317d3aefa53de87e1d36fdcbf1650722e1f358",
+    size=53745336,
+    licence="Vis et al., Cell Rep Med 2024 (open access, CC BY); GDSC data: internal use",
+)
+
+# --- Cell Model Passports model annotations (MSI status, tissue) for GDSC lines. The URL is
+# "latest", so the checksum pins the copy the case studies were run with (2026-11-18).
+CMP_MODEL_LIST = RemoteFile(
+    "cmp",
+    "model_list_latest.csv.gz",
+    "https://cog.sanger.ac.uk/cmp/download/model_list_latest.csv.gz",
+    sha256="333affaa690c9f7e517467a6f78b00ffb418cb8449e2eb1cc5d93d85f7b0862e",
+    size=145029,
+    licence="Cell Model Passports: non-commercial use",
+)

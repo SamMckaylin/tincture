@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### M7: Combination Surface, Combination Lift, Onset Timeline (2026-11-18)
+- `model.combo.ComboMatrix` (design inferred: full / anchored / partial) and `stats.synergy`: Bliss independence (default), ZIP (Yadav et al. 2015) and HSA; ceiling mask (expected inhibition > 90%); per-replicate t-tests (≥ 2 replicates) or a parametric bootstrap with a stated noise SD (one replicate), BH across cells, significant region = q < 0.05 and excess ≥ 10%.
+- `tc.combination_surface`: observed contours inside the grid only, significant region outlined, ceiling cells hatched, free-Cmax box, single-agent margins, excess heatmap; refuses anchored designs (points to the Lift). `tc.combination_lift`: best single agent vs combination, benefit band, groups with Fisher / Mann–Whitney, failed fits hollow, facets per anchor concentration.
+- `stats.onset` + `tc.onset_timeline`: interval-censored onset, peak, resolution; Gantt rows ordered by onset; horizon style for ≥ 6 time points only.
+- Loaders: `io.gdsc_combo` (Jaaks 2022, Bashi 2024 per-well 7×7, Vis 2024, Cell Model Passports annotations) and `io.mixseq` (streaming pseudobulk of the trametinib time course).
+- CS4 PASS (AZD7762 + camptothecin benefit in colon, MSS 59% vs MSI 20% at the low anchor); CS5 (selumetinib + venetoclax vs olaparib + AZD5153) see docs/milestone_7.md; CS8 PASS (MAPK output down by 3 h; p53 from 12–24 h; Hallmark apoptosis never active).
+- Kinase ATP Km values (ABL1, ALK, MET) found and verified in open-access papers; recorded, not yet applied.
+
 ### M6: Engagement Ladder (2026-11-18)
 - `io.davis` (Davis 2011 Kd, 442 assays × 72 inhibitors; censored blanks; construct classes), `io.nanobret` (Vasta 2018 single-dose occupancy → apparent IC50, model-based), `io.kinase_names` (curated synonyms); both files pinned as manual downloads. Reproduces the paper: crizotinib 13 engaged in cells vs 69 bound biochemically.
 - `tc.engagement_ladder`: rungs on a shared log axis, intervals, small multiples per target; off-target, ATP-shift (Cheng–Prusoff wedge, needs ATP Km) and exposure flags; dashed across cell systems; missing rungs skipped; `<` and `>` censoring used only when conclusive.

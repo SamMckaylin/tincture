@@ -109,7 +109,7 @@ PRISM 20Q2 secondary (Corsello et al. 2020, CC BY 4.0): dabrafenib in A375 (BRAF
 
 ## Neighbourhood Card: Which annotated compounds does this one resemble?
 
-LINCS L1000 phase II (GEO GSE70138) consensus signatures, 603 compounds with Repurposing Hub MoA; bortezomib left out of its own library (CS7). Shown with the **unrelated-pairs null**; under the handover's all-pairs null (the current default) the same card reports 'no confident neighbour' (top neighbour oprozomib, q = 0.056). Which null to use is an open decision (docs/milestone_5.md).
+LINCS L1000 phase II (GEO GSE70138) consensus signatures, 603 compounds with Repurposing Hub MoA; bortezomib left out of its own library (CS7). Shown with the **unrelated-pairs null**; under the handover's all-pairs null (the current default) the same card reports 'no confident neighbour' (top neighbour oprozomib, q = 0.056). The all-pairs null stays the default (decision recorded in docs/milestone_5.md).
 
 | Classic: ranked similarity bars | tincture: Neighbourhood Card |
 |---|---|
@@ -121,6 +121,21 @@ LINCS L1000 phase II (GEO GSE70138) consensus signatures, 603 compounds with Rep
 - each neighbour gets a q value against the library's own null, and only confident neighbours are coloured; with none, the card says so
 - similarity intervals from the query's own replicate signatures
 - the query's structure sits next to its neighbours
+
+## Onset Timeline: What happens first, and what follows?
+
+MIX-seq (McFarland, Paolella et al. 2020, CC BY 4.0): trametinib 0.1 µM vs DMSO in 24 pooled cancer cell lines at 3, 6, 12, 24 and 48 h; PROGENy and Hallmark scores per cell line, tested across lines (CS8).
+
+| Classic: pathway scores over time | tincture: Onset Timeline |
+|---|---|
+| ![classic](img/gallery/onset_trametinib_classic.png) | ![Onset Timeline](img/gallery/onset_trametinib.png) |
+
+**Caption (generated).** First to respond (onset in (0, 3] h): NFkB (PROGENy) (down, peak at 3 h), TNFa (PROGENy) (down, peak at 3 h), EGFR (PROGENy) (down, peak at 6 h), MAPK (PROGENy) (down, peak at 24 h). 9 pathway(s) start strictly later, e.g. Estrogen (PROGENy) (onset in (3, 6] h). 11 remain active at the last time point (48 h). 7 pathway(s) never become active: Androgen (PROGENy), Trail (PROGENy), VEGF (PROGENy), WNT (PROGENy), apoptosis (Hallmark), p53 pathway (Hallmark), unfolded protein response (Hallmark). Onsets are intervals between sampled time points (3, 6, 12, 24, 48 h); the true onset can lie anywhere inside the bracket.
+
+**What changes:**
+- onset is an interval between sampled time points, never a precise point
+- rows ordered by onset, so the sequence (MAPK output first, cell cycle later, p53 later still) reads top to bottom
+- peak and persistence on the same row; pathways that never respond are listed
 
 ## Plate Atlas: can we trust this plate?
 
@@ -135,3 +150,32 @@ Shown on **synthetic** test plates: GDSC-derived plate figures are kept local (l
 **What changes:**
 - Z′ per plate with the 0.5 line, edge effect and control drift next to the plate map, so a bad plate is visible at a glance
 - controls and absent wells are marked; the QC definitions are printed
+
+## Combination Surface: Is there a reachable dose pair where the combination beats expectation?
+
+Shown on **synthetic** data: GDSC combination figures are kept local (licence). Run `case_studies/cs4_gdsc_anchored.py` and `cs5_gdsc_matrix.py` for the real data.
+
+| Classic: synergy heatmap | tincture: Combination Surface |
+|---|---|
+| ![classic](img/gallery/combination_surface_synthetic_classic.png) | ![Combination Surface](img/gallery/combination_surface_synthetic.png) |
+
+**Caption (generated).** synthetic A + synthetic B in synthetic line: observed viability reaches 0% at the highest doses (3 replicate matrices). Under Bliss independence, 6 of 46 testable cells show significant excess ≥ 10% (BH q < 0.05); the largest is +29% at 316 nM synthetic A + 100 nM synthetic B. Benefit over the best single agent (HSA) ≥ 10% is significant in 8 cell(s). 3 cell(s) are hatched: expected inhibition exceeds 90%, so excess there is not interpretable. 2 significant cell(s) lie inside the clinically reachable box (free Cmax). Note: only 3 replicates: intervals are wide.
+
+**What changes:**
+- the observed response surface (interpolated only inside the measured grid) next to the excess over the reference model (Bliss by default; ZIP and HSA available)
+- only cells with significant excess ≥ 10% are outlined; cells with no room for excess (expected inhibition > 90%) are hatched, not scored
+- the clinically reachable box (free Cmax) when supplied, and benefit over the best single agent reported alongside synergy
+
+## Combination Lift: In which cell lines does the combination beat the best single agent?
+
+Shown on **synthetic** data: GDSC combination figures are kept local (licence). Run `case_studies/cs4_gdsc_anchored.py` and `cs5_gdsc_matrix.py` for the real data.
+
+| Classic: waterfall of ΔEmax | tincture: Combination Lift |
+|---|---|
+| ![classic](img/gallery/combination_lift_synthetic_classic.png) | ![Combination Lift](img/gallery/combination_lift_synthetic.png) |
+
+**Caption (generated).** drug A + drug B: 17 of 29 cell lines (59%) show benefit (combination effect ≥ 20% above the best single agent); by grp: neg 0/12 (0%), pos 17/17 (100%) (Fisher p < 0.001; ΔEmax Mann–Whitney p < 0.001). 1 cell line(s) with failed fits are hollow and not counted.
+
+**What changes:**
+- every cell line against the no-benefit diagonal, with the benefit threshold as a band
+- groups (tissue, biomarker) compared with a stated test; failed fits hollow and not counted

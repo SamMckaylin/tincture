@@ -154,12 +154,28 @@ EXTRA = [
         "Repurposing Hub MoA; bortezomib left out of its own library (CS7). Shown with the "
         "**unrelated-pairs null**; under the handover's all-pairs null (the current default) "
         "the same card reports 'no confident neighbour' (top neighbour oprozomib, q = 0.056). "
-        "Which null to use is an open decision (docs/milestone_5.md).",
+        "The all-pairs null stays the default (decision recorded in docs/milestone_5.md).",
         [
             "each neighbour gets a q value against the library's own null, and only "
             "confident neighbours are coloured; with none, the card says so",
             "similarity intervals from the query's own replicate signatures",
             "the query's structure sits next to its neighbours",
+        ],
+    ),
+    (
+        "cs8_onset_mixseq",
+        "onset_trametinib",
+        "Onset Timeline",
+        "What happens first, and what follows?",
+        "pathway scores over time",
+        "MIX-seq (McFarland, Paolella et al. 2020, CC BY 4.0): trametinib 0.1 µM vs DMSO in "
+        "24 pooled cancer cell lines at 3, 6, 12, 24 and 48 h; PROGENy and Hallmark scores "
+        "per cell line, tested across lines (CS8).",
+        [
+            "onset is an interval between sampled time points, never a precise point",
+            "rows ordered by onset, so the sequence (MAPK output first, cell cycle later, p53 "
+            "later still) reads top to bottom",
+            "peak and persistence on the same row; pathways that never respond are listed",
         ],
     ),
 ]
@@ -192,6 +208,72 @@ def _plate_atlas_synthetic(tmp: Path) -> tuple[Path, Path, str]:
     )
     written = tc.export(res, tmp / "plate_atlas", formats=("png",))
     return written["png"], written["classic_png"], res.caption
+
+
+def _combination_synthetic(tmp: Path) -> list[str]:
+    """Combination Surface and Lift on synthetic data (GDSC-derived figures stay local)."""
+    import tincture as tc
+    from tests.fixtures.synthetic_combo import synthetic_matrix
+    from tests.test_combination import _lift_df
+
+    out: list[str] = []
+    s = tc.combination_surface(
+        synthetic_matrix(synergy=0.25, sd=0.03),
+        cmax_a=(3e-8, 1e-7),
+        cmax_b=(3e-8, 1e-7),
+        title="Combination Surface (synthetic 7 × 7 matrix)",
+    )
+    lf = tc.combination_lift(
+        _lift_df(), "drug A", "drug B", group="grp", title="Combination Lift (synthetic)"
+    )
+    for stem, res, plot, q, classic, adds in (
+        (
+            "combination_surface_synthetic", s, "Combination Surface",
+            "Is there a reachable dose pair where the combination beats expectation?",
+            "synergy heatmap",
+            [
+                "the observed response surface (interpolated only inside the measured grid) "
+                "next to the excess over the reference model (Bliss by default; ZIP and HSA "
+                "available)",
+                "only cells with significant excess ≥ 10% are outlined; cells with no room "
+                "for excess (expected inhibition > 90%) are hatched, not scored",
+                "the clinically reachable box (free Cmax) when supplied, and benefit over the "
+                "best single agent reported alongside synergy",
+            ],
+        ),
+        (
+            "combination_lift_synthetic", lf, "Combination Lift",
+            "In which cell lines does the combination beat the best single agent?",
+            "waterfall of ΔEmax",
+            [
+                "every cell line against the no-benefit diagonal, with the benefit threshold "
+                "as a band",
+                "groups (tissue, biomarker) compared with a stated test; failed fits hollow "
+                "and not counted",
+            ],
+        ),
+    ):  # fmt: skip
+        paths = res.save(tmp / stem, formats=("png",))
+        _shrink(paths["png"], IMG / f"{stem}.png")
+        _shrink(paths["classic_png"], IMG / f"{stem}_classic.png")
+        out += [
+            f"## {plot}: {q}",
+            "",
+            "Shown on **synthetic** data: GDSC combination figures are kept local (licence). "
+            "Run `case_studies/cs4_gdsc_anchored.py` and `cs5_gdsc_matrix.py` for the real "
+            "data.",
+            "",
+            f"| Classic: {classic} | tincture: {plot} |",
+            "|---|---|",
+            f"| ![classic](img/gallery/{stem}_classic.png) | ![{plot}](img/gallery/{stem}.png) |",
+            "",
+            f"**Caption (generated).** {res.caption}",
+            "",
+            "**What changes:**",
+            *[f"- {a}" for a in adds],
+            "",
+        ]
+    return out
 
 
 def main() -> int:
@@ -272,6 +354,7 @@ def main() -> int:
         "- controls and absent wells are marked; the QC definitions are printed",
         "",
     ]
+    lines += _combination_synthetic(tmp)
     OUT.write_text("\n".join(lines), encoding="utf-8")
     print(f"wrote {OUT} and {len(list(IMG.glob('*.png')))} images")
     return 0

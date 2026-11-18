@@ -13,8 +13,8 @@ Drug-discovery papers recycle the same generic plots (PCA, UMAP, volcano, GSEA b
 | Is there a safe, effective dose? | Window | **available** |
 | How specific is it? | Selectivity Spectrum | **available** |
 | Does potency hold up from enzyme to cell to phenotype? | Engagement Ladder | **available** |
-| Do two drugs work better together, at reachable doses? | Combination Surface / Lift | planned (M7) |
-| What happens first, and what follows? | Onset Timeline | planned (M7) |
+| Do two drugs work better together, at reachable doses? | Combination Surface / Lift | available |
+| What happens first, and what follows? | Onset Timeline | available |
 
 Every plot ships with:
 - the figure;
@@ -24,7 +24,7 @@ Every plot ships with:
 
 Uncertainty is on by default. When a result is weak (a failed fit, no confident neighbour, a bend within noise), the figure says so.
 
-> **Status: Milestone 6 of 7.** Ten question-first plots, all validated on real public data (sci-Plex, PRISM, GDSC, LINCS L1000, Davis 2011, NanoBRET): **Retrievability**, **Plate Atlas**, **Compass**, **Dose Paths**, **Fingerprint Strip**, **Effect Ladder**, **Window**, **Neighbourhood Card**, **Selectivity Spectrum** and **Engagement Ladder**. Underneath: verified loaders and a statistics layer (empirical-Bayes signatures, pathway scores, NNLS projection, dose-path bend test, 4PL fits with bootstrap, neighbour nulls). See the [gallery](docs/gallery.md), the [API reference](docs/api.md) and the milestone reports in [`docs/`](docs/).
+> **Status: Milestone 7 of 7.** Thirteen question-first plots, each run against a pre-specified check on real public data (sci-Plex, PRISM, GDSC monotherapy and combinations, LINCS L1000, Davis 2011, NanoBRET, MIX-seq): **Retrievability**, **Plate Atlas**, **Compass**, **Dose Paths**, **Fingerprint Strip**, **Effect Ladder**, **Window**, **Neighbourhood Card**, **Selectivity Spectrum**, **Engagement Ladder**, **Combination Surface**, **Combination Lift** and **Onset Timeline**. Underneath: verified loaders and a statistics layer (empirical-Bayes signatures, pathway scores, NNLS projection, dose-path bend test, 4PL fits with bootstrap, neighbour nulls, Bliss/ZIP/HSA synergy with honest uncertainty, interval-censored onsets). See the [gallery](docs/gallery.md), the [API reference](docs/api.md) and the milestone reports in [`docs/`](docs/).
 
 ## Before / after
 
