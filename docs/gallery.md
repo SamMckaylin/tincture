@@ -80,13 +80,13 @@ PRISM 20Q2 secondary (Corsello et al. 2020, CC BY 4.0): dabrafenib in A375 (BRAF
 
 ## Neighbourhood Card: Which annotated compounds does this one resemble?
 
-LINCS L1000 phase II (GEO GSE70138) consensus signatures, 603 compounds with Repurposing Hub MoA; vorinostat left out of its own library (CS7).
+LINCS L1000 phase II (GEO GSE70138) consensus signatures, 603 compounds with Repurposing Hub MoA; bortezomib left out of its own library (CS7). Shown with the **unrelated-pairs null**; under the handover's all-pairs null (the current default) the same card reports 'no confident neighbour' (top neighbour oprozomib, q = 0.056). Which null to use is an open decision (docs/milestone_5.md).
 
 | Classic: ranked similarity bars | tincture: Neighbourhood Card |
 |---|---|
-| ![classic](img/gallery/card_vorinostat_all_classic.png) | ![Neighbourhood Card](img/gallery/card_vorinostat_all.png) |
+| ![classic](img/gallery/card_bortezomib_unrelated_classic.png) | ![Neighbourhood Card](img/gallery/card_bortezomib_unrelated.png) |
 
-**Caption (generated).** Note: No neighbour passes q < 0.05: the closest, belinostat (HDAC inhibitor), has cosine 0.92 (q = 0.061), within what random library pairs reach.
+**Caption (generated).** bortezomib most resembles oprozomib (proteasome inhibitor; cosine 0.92, q = 0.022). 3 of the top 10 neighbours pass q < 0.05; 3 of them share this MoA. Grey bars do not pass q < 0.05.
 
 **What changes:**
 - each neighbour gets a q value against the library's own null, and only confident neighbours are coloured; with none, the card says so

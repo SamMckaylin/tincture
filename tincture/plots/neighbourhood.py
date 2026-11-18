@@ -66,8 +66,8 @@ def structure_image(smiles: str | None, size: int = 360) -> np.ndarray | None:
 
 
 def _pct(x: float) -> str:
-    """Percentile text that never rounds up to 100%."""
-    return "more than 99.9%" if x > 0.999 else f"{x:.1%}"
+    """'higher than N% of library pairs', never rounding up to 100%."""
+    return "higher than 99.9%" if x > 0.999 else f"higher than {x:.1%}"
 
 
 def _ann(lib: ReferenceLibrary, ref: str, key: str, default: str = "") -> str:
@@ -126,7 +126,7 @@ def build_spec(
             f"No neighbour passes q < {alpha:g}: the closest, "
             f"{_ann(lib, res.names[best], 'name', res.names[best])} "
             f"({_ann(lib, res.names[best], 'moa', 'no MoA')}), has cosine "
-            f"{res.similarity[best]:.2f}, above {_pct(res.percentile[best])} of library pairs "
+            f"{res.similarity[best]:.2f}, {_pct(res.percentile[best])} of library pairs "
             f"(p {fmt_p(res.p[best])}), but q {fmt_p(res.q[best])} after correcting for "
             f"{len(res.names)} comparisons."
         )

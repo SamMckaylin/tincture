@@ -42,9 +42,9 @@
   - **Guard (tested):** mixed assay types are refused unless `allow_mixed=True`, which gives distinct markers and a caption warning.
   - Tested on synthetic panels only (D7/D8 blocked).
 - Spec and renderer: `ImageMark` for structures, per-reference library annotations, SHA-512 checksums.
-- Gallery extended with Window (CS2), Neighbourhood Card (CS7) and a synthetic Selectivity Spectrum.
+- Gallery extended with Window (CS2), Neighbourhood Card (CS7: bortezomib with the unrelated-pairs null, labelled as such) and a synthetic Selectivity Spectrum.
 
-**Tests:** 294 passing, plus 7 opt-in real-data tests. New baselines for Window, Neighbourhood and Selectivity, all colour-blind-checked.
+**Tests:** 300 passing, plus 8 opt-in real-data tests. New baselines for Window, Neighbourhood and Selectivity, all colour-blind-checked.
 
 ## Acceptance
 
@@ -75,7 +75,7 @@
 | all pairs (handover) | 6% | 89% |
 | unrelated pairs | 14% | 60% |
 
-"Unrelated" makes more calls but they are less precise. Exact-label matching understates its accuracy, since related mechanisms often carry different labels (e.g. PI3K vs mTOR inhibitor), but not by enough to close the gap. I'd keep the handover default and offer `null_kind="unrelated"` as an option, which is the current state.
+"Unrelated" makes more calls but they are less precise. Under the default, even textbook cases get no confident neighbour: vorinostat's top neighbour belinostat (cosine 0.92) has q = 0.061, and bortezomib's top neighbour oprozomib (cosine 0.92) has q = 0.056. Both are in the top 0.1% of library pairs, but the correction for 603 comparisons needs p < 8e-5, i.e. fewer than about 14 of 181k null pairs above them, and same-class pairs fill that tail. Exact-label matching understates its accuracy, since related mechanisms often carry different labels (e.g. PI3K vs mTOR inhibitor), but not by enough to close the gap. I'd keep the handover default and offer `null_kind="unrelated"` as an option, which is the current state.
 
 ## Open questions
 

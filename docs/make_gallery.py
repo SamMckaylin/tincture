@@ -112,12 +112,15 @@ EXTRA = [
     ),
     (
         "cs7_reference_library",
-        "card_vorinostat_all",
+        "card_bortezomib_unrelated",
         "Neighbourhood Card",
         "Which annotated compounds does this one resemble?",
         "ranked similarity bars",
         "LINCS L1000 phase II (GEO GSE70138) consensus signatures, 603 compounds with "
-        "Repurposing Hub MoA; vorinostat left out of its own library (CS7).",
+        "Repurposing Hub MoA; bortezomib left out of its own library (CS7). Shown with the "
+        "**unrelated-pairs null**; under the handover's all-pairs null (the current default) "
+        "the same card reports 'no confident neighbour' (top neighbour oprozomib, q = 0.056). "
+        "Which null to use is an open decision (docs/milestone_5.md).",
         [
             "each neighbour gets a q value against the library's own null, and only "
             "confident neighbours are coloured; with none, the card says so",

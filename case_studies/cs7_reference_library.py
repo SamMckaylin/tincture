@@ -40,7 +40,7 @@ CORE = ["MCF7", "A375", "PC3", "HT29", "HA1E", "YAPC", "HELA"]
 DOSE = 1e-5
 PRISM = Path(__file__).resolve().parents[1] / "data/raw/prism"
 TREAT = "prism-repurposing-20q2-secondary-screen-replicate-collapsed-treatment-info.csv"
-FEATURED = ["vorinostat", "trametinib"]
+FEATURED = ["bortezomib", "vorinostat", "trametinib"]
 FOOT = (SOURCE, "MoA: Drug Repurposing Hub via PRISM 20Q2 (CC BY 4.0)")
 
 
