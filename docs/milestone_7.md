@@ -104,3 +104,31 @@ The pre-specified check (MAPK onset earlier than every stress/apoptosis programm
 
    Should I wire these in (labelled per source), or leave the purple flag demonstrated on synthetic data only?
 3. **Still open from §9:** package name (a PyPI check), and the remaining §9 items (pertpy relationship, Dose Paths stress axis, copairs dependency) if you want to close them before a release.
+
+## Follow-up after review (2026-11-18)
+
+You chose **(b) for CS5** and asked me to **wire in the ATP Km values**.
+
+### CS6: ATP Km applied
+
+- Values: ABL1 9.8 µM (Grover 2015); ALK 134–159 µM (Bresler 2011, unphosphorylated and phosphorylated); MET 60–200 µM (Behshad 2010, phosphorylated and unphosphorylated).
+- Where two enzyme forms are reported, `atp_shift` now takes a (low, high) Km range. The wedge then spans every combination of ATP and Km, so the flag fires only beyond the widest expectation (tested).
+- **Purple flag:**
+  - dasatinib/ABL1: shift 3.0 vs 2.0–2.7 expected, fires;
+  - crizotinib/ALK: 2.0 vs 0.9–1.6, fires;
+  - crizotinib/MET: 1.4 vs 0.8–1.9, does not fire.
+- It is reported, not pass/fail, with the caveats: three labs and three constructs; the cellular rung is an apparent IC50 from occupancy; the biochemical rung is a domain-binding Kd. The footer names every Km source. CS6's pre-specified checks still PASS.
+
+### CS5 version 2 (option b): invalid, because its calibration gate failed
+
+- **Estimator (fixed before the run):** within-matrix noise from robust second differences along rows and columns of unsaturated wells.
+- **Gate (also fixed before the run):** on replicated matrices, the estimate must be at least 0.8× the real replicate SD.
+- **Result:** on **384 replicated matrices** (gdsc-008 and gdsc-010, ≥ 3 replicates), the median ratio is **0.71** (IQR 0.56–0.87). The estimate median is 0.064 viability, against a replicate SD median of 0.088.
+- **Interpretation:** a single matrix only sees within-plate noise, but replicate matrices also differ plate to plate. Version 2 would therefore be anti-conservative, and its checks are invalid as pre-registered.
+- **For the record only (invalid, not used):** under version 2 the Bliss region appears in 3 of 6 beneficial lines (HSA benefit in 5 of 6), and no region in 10 of 10 non-beneficial lines.
+- **CS5 therefore stands as FAIL** under both versions. Version 1 failed its sensitivity check; version 2 failed its own validity gate.
+
+### What I'd suggest next (your decision)
+
+- **(d) Calibrated noise:** scale the within-matrix estimate by the factor measured on the replicated matrices (1 / 0.71 ≈ 1.4, ideally estimated per screen), pre-registered as version 3 with a fresh gate. One caveat: these 384 matrices were used to *derive* the factor, so the gate would need held-out matrices (e.g. calibrate on gdsc-008, check on gdsc-010).
+- **Or accept the result:** the outcome is informative as it stands. Single-replicate 7×7 matrices can support a point-estimate *screen* but not a per-cell significance claim. The Surface already says so in its caption when no noise estimate is given.

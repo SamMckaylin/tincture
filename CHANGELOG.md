@@ -8,7 +8,8 @@
 - `stats.onset` + `tc.onset_timeline`: interval-censored onset, peak, resolution; Gantt rows ordered by onset; horizon style for ≥ 6 time points only.
 - Loaders: `io.gdsc_combo` (Jaaks 2022, Bashi 2024 per-well 7×7, Vis 2024, Cell Model Passports annotations) and `io.mixseq` (streaming pseudobulk of the trametinib time course).
 - CS4 PASS (AZD7762 + camptothecin benefit in colon, MSS 59% vs MSI 20% at the low anchor); CS5 (selumetinib + venetoclax vs olaparib + AZD5153) see docs/milestone_7.md; CS8 PASS (MAPK output down by 3 h; p53 from 12–24 h; Hallmark apoptosis never active).
-- Kinase ATP Km values (ABL1, ALK, MET) found and verified in open-access papers; recorded, not yet applied.
+- Kinase ATP Km values (ABL1, ALK, MET) found and verified in open-access papers and applied in CS6 (Km ranges supported); the purple flag fires for dasatinib/ABL1 and crizotinib/ALK.
+- CS5 version 2 (within-matrix noise estimate) pre-registered with a calibration gate on 384 replicated matrices; the gate failed (estimate 0.71× replicate SD), so CS5 stands as FAIL under both versions.
 
 ### M6: Engagement Ladder (2026-11-18)
 - `io.davis` (Davis 2011 Kd, 442 assays × 72 inhibitors; censored blanks; construct classes), `io.nanobret` (Vasta 2018 single-dose occupancy → apparent IC50, model-based), `io.kinase_names` (curated synonyms); both files pinned as manual downloads. Reproduces the paper: crizotinib 13 engaged in cells vs 69 bound biochemically.
