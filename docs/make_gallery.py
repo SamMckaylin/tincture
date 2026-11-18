@@ -95,6 +95,40 @@ OUT_CS = ROOT / "case_studies" / "out"
 #: data note, what changes). Skipped with a note when the case study has not been run.
 EXTRA = [
     (
+        "cs6_engagement_ladder",
+        "engagement_ladder",
+        "Engagement Ladder",
+        "Does potency hold up from enzyme to cell to phenotype, and where does it break?",
+        "grouped bar chart of potencies",
+        "Biochemical Kd (Davis et al. 2011), live-cell engagement in HEK293 (Vasta et al. "
+        "2018; apparent IC50 from single-dose occupancy) and PRISM viability (CS6). The "
+        "dasatinib flag is discussed in the CS6 report: BCR-ABL in K562 vs full-length ABL1 "
+        "in HEK293 is the likely reason.",
+        [
+            "every rung on one concentration axis, so the shift from protein to cell to "
+            "phenotype is read directly",
+            "automatic flags: phenotype far more potent than engagement (off-target?), shifts "
+            "beyond the expected ATP effect, exposure below the active concentration",
+            "dashed segments and labels wherever rungs come from different cell systems",
+        ],
+    ),
+    (
+        "cs6_engagement_ladder",
+        "selectivity_crizotinib_nanobret",
+        "Selectivity Spectrum",
+        "How specific is this compound?",
+        "bar chart of most potent targets",
+        "Crizotinib engagement of 178 kinases in live HEK293 cells (Vasta et al. 2018, "
+        "apparent IC50 from occupancy at 1 µM); the biochemical spectrum (Davis 2011) is in "
+        "the CS6 report: 69 kinases bound biochemically, 13 engaged in cells.",
+        [
+            "the whole panel, strongest first, with censored (not detected) targets shown "
+            "and counted",
+            "off-targets judged against exposure (free Cmax band) when supplied, otherwise by "
+            "a stated 10-fold rule; panel coverage in the footer",
+        ],
+    ),
+    (
         "cs2_prism_windows",
         "window_ACH-000219",
         "Window",
@@ -160,25 +194,6 @@ def _plate_atlas_synthetic(tmp: Path) -> tuple[Path, Path, str]:
     return written["png"], written["classic_png"], res.caption
 
 
-def _selectivity_synthetic(tmp: Path) -> tuple[Path, Path, str]:
-    sys.path.insert(0, str(ROOT))
-    import tincture as tc
-    from tests.fixtures.synthetic_potency import synthetic_panel
-
-    res = tc.selectivity(
-        synthetic_panel(),
-        "synthetic_cpd",
-        "SYN_TARGET",
-        cmax=(3e-8, 3e-7),
-        panel_size=518,
-        panel_name="kinases",
-        title="Selectivity Spectrum (synthetic panel)",
-        footer=("Synthetic potencies from tests/fixtures; not real data.",),
-    )
-    w = tc.export(res, tmp / "selectivity", formats=("png",))
-    return w["png"], w["classic_png"], res.caption
-
-
 def main() -> int:
     if not (CS1 / "2_compass.png").exists():
         print("Run python case_studies/cs1_sciplex_hdac.py first.", file=sys.stderr)
@@ -234,29 +249,6 @@ def main() -> int:
         ]
     tmp = ROOT / "case_studies" / "out" / "gallery_tmp"
     tmp.mkdir(parents=True, exist_ok=True)
-    sel = _selectivity_synthetic(tmp)
-    _shrink(sel[0], IMG / "selectivity_synthetic.png")
-    _shrink(sel[1], IMG / "selectivity_synthetic_classic.png")
-    lines += [
-        "## Selectivity Spectrum: how specific is this compound?",
-        "",
-        "Shown on a **synthetic** panel: the kinase panels (NanoBRET, Davis 2011) could not be "
-        "downloaded automatically (see `docs/data_status.md`).",
-        "",
-        "| Classic: bar chart of most potent targets | tincture: Selectivity Spectrum |",
-        "|---|---|",
-        "| ![classic](img/gallery/selectivity_synthetic_classic.png) "
-        "| ![Selectivity Spectrum](img/gallery/selectivity_synthetic.png) |",
-        "",
-        f"**Caption (generated).** {sel[2]}",
-        "",
-        "**What changes:**",
-        "- the whole panel, strongest first, with censored (not detected) targets shown "
-        "and counted",
-        "- off-targets judged against exposure (free Cmax band) when supplied, otherwise by "
-        "a stated 10-fold rule; panel coverage in the footer",
-        "",
-    ]
     pa, pa_classic, pa_cap = _plate_atlas_synthetic(tmp)
     _shrink(pa, IMG / "plate_atlas_synthetic.png")
     _shrink(pa_classic, IMG / "plate_atlas_synthetic_classic.png")

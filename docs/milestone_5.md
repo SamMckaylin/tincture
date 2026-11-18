@@ -66,7 +66,7 @@
 6. **An unverified duration label.** I almost printed "PRISM 5 d" on the curves; the PRISM readme does not state a duration, so the label is "PRISM secondary viability".
 7. **Disk:** the LINCS Level 5 download is 5.4 GB and is kept, git-ignored, so the cache can be rebuilt without re-downloading. Free disk after M5 is about 17 GB.
 
-## Decision needed
+## Decision (resolved 2026-11-18): keep the handover's all-pairs null as the default
 
 **Neighbourhood null:** keep the handover's "all library pairs" (current default) or switch to "unrelated pairs" (pairs with different MoA labels)? CS7 measured the trade-off:
 
@@ -79,7 +79,7 @@
 
 ## Open questions
 
-1. **D7 / D8 files:** could you download the two files in a browser and drop them in? Then I'll write the loaders against the real layout and run CS6 (M6).
+1. ~~**D7 / D8 files**~~ (supplied by the user on 2026-11-18; loaders written and CS6 run in M6).
    - D7: `mmc2.xlsx` from https://pmc.ncbi.nlm.nih.gov/articles/PMC5814754/, placed at `data/raw/nanobret/vasta2018_mmc2.xlsx`.
    - D8: Supplementary Table 4 from https://www.nature.com/articles/nbt.1990, placed at `data/raw/davis/davis2011_table4.xls`.
 2. **The Window R² guard:** keep R² ≥ 0.8 as the handover specifies, or add a second test that recognises flat curves as "no effect" rather than "poor fit" (an F-test of the 4PL against a constant)? This only changes how rejected lines are labelled, not whether a window is drawn.

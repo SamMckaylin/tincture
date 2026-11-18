@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### M6: Engagement Ladder (2026-11-18)
+- `io.davis` (Davis 2011 Kd, 442 assays × 72 inhibitors; censored blanks; construct classes), `io.nanobret` (Vasta 2018 single-dose occupancy → apparent IC50, model-based), `io.kinase_names` (curated synonyms); both files pinned as manual downloads. Reproduces the paper: crizotinib 13 engaged in cells vs 69 bound biochemically.
+- `tc.engagement_ladder`: rungs on a shared log axis, intervals, small multiples per target; off-target, ATP-shift (Cheng–Prusoff wedge, needs ATP Km) and exposure flags; dashed across cell systems; missing rungs skipped; `<` and `>` censoring used only when conclusive.
+- CS6: crizotinib selectivity reproduced; dasatinib/ABL1 off-target flag fires (K562 vs HEK293 caveat stated); ATP-shift flag not evaluable without ATP Km.
+- Selectivity Spectrum on real data (crizotinib, Davis and NanoBRET); stacked labels with leader lines. `PolygonMark`.
+
 ### M5: Window, Neighbourhood Card, Selectivity Spectrum (2026-11-18)
 - `stats.hill`: bounded 4PL fits (soft-L1), EC90/EC10 definitions, warm-started bootstrap, median-of-units curves with unit bootstrap.
 - `tc.window`: fit-quality guards (convergence, R² ≥ 0.8, effect ≥ 50%), censored toxicity, Cmax as a range band, assay context; classic overlaid curves. CS2 (PRISM, dabrafenib): skin lines have windows (12/44 vs 9/676, p = 1e-10).

@@ -28,6 +28,7 @@ from tincture.result import PlotResult
 from tincture.spec import (
     BandMark,
     LegendSpec,
+    LineMark,
     Panel,
     PlotSpec,
     PointMark,
@@ -144,22 +145,38 @@ def build_spec(
                 )
             )
             first = False
-    # labels: intended + strongest off-targets
+    # labels: intended + strongest off-targets, stacked in a column to the right of the
+    # dense top ranks with leader lines, so they never overlap
     lab_rows = ranked[is_int | off].head(top_labels + len(ints))
-    for _, r in lab_rows.iterrows():
-        col = "focus" if r["target"] in ints else "ink_soft"
-        p.add(
-            TextMark(
-                x=float(r["rank"]) + 0.6,
-                y=float(r["px"]),
-                text=str(r["target"]),
-                ha="left",
-                va="center",
-                color=col,
-                size=6.5,
-                categorical=r["target"] in ints,
+    if len(lab_rows):
+        sep = 0.055 * (hi_px - lo_px)
+        col_x = float(lab_rows["rank"].max()) + max(3.0, 0.06 * len(ranked))
+        ys: list[float] = []
+        for _, r in lab_rows.sort_values("px", ascending=False).iterrows():
+            y = float(r["px"]) if not ys else min(float(r["px"]), ys[-1] - sep)
+            ys.append(y)
+            col = "focus" if r["target"] in ints else "ink_soft"
+            p.add(
+                LineMark(
+                    x=[float(r["rank"]) + 0.3, col_x - 0.3],
+                    y=[float(r["px"]), y],
+                    color="grid",
+                    width=0.5,
+                    z=1.5,
+                )
             )
-        )
+            p.add(
+                TextMark(
+                    x=col_x,
+                    y=y,
+                    text=str(r["target"]),
+                    ha="left",
+                    va="center",
+                    color=col,
+                    size=6.5,
+                    categorical=r["target"] in ints,
+                )
+            )
     if len(cens):
         lim = float(cens["px"].max())
         p.add(

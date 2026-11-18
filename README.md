@@ -11,8 +11,8 @@ Drug-discovery papers recycle the same generic plots (PCA, UMAP, volcano, GSEA b
 | What did it do biologically? | Fingerprint Strip, Effect Ladder | **available** |
 | Is the effect real? | Retrievability, Plate Atlas | **available** |
 | Is there a safe, effective dose? | Window | **available** |
-| How specific is it? | Selectivity Spectrum | **available** (real kinase panels pending, see below) |
-| Does potency hold up from enzyme to cell to phenotype? | Engagement Ladder | planned (M6) |
+| How specific is it? | Selectivity Spectrum | **available** |
+| Does potency hold up from enzyme to cell to phenotype? | Engagement Ladder | **available** |
 | Do two drugs work better together, at reachable doses? | Combination Surface / Lift | planned (M7) |
 | What happens first, and what follows? | Onset Timeline | planned (M7) |
 
@@ -24,7 +24,7 @@ Every plot ships with:
 
 Uncertainty is on by default. When a result is weak (a failed fit, no confident neighbour, a bend within noise), the figure says so.
 
-> **Status: Milestone 5 of 7.** Nine question-first plots: **Retrievability**, **Plate Atlas**, **Compass**, **Dose Paths**, **Fingerprint Strip**, **Effect Ladder**, **Window**, **Neighbourhood Card** and **Selectivity Spectrum**. All but the Selectivity Spectrum are validated on real public data (sci-Plex, PRISM, GDSC, LINCS L1000). The kinase panels it needs (NanoBRET, Davis 2011) could not be downloaded automatically; see [`docs/data_status.md`](docs/data_status.md). Underneath: verified loaders and a statistics layer (empirical-Bayes signatures, pathway scores, NNLS projection, dose-path bend test, 4PL fits with bootstrap, neighbour nulls). See the [gallery](docs/gallery.md), the [API reference](docs/api.md) and the milestone reports in [`docs/`](docs/).
+> **Status: Milestone 6 of 7.** Ten question-first plots, all validated on real public data (sci-Plex, PRISM, GDSC, LINCS L1000, Davis 2011, NanoBRET): **Retrievability**, **Plate Atlas**, **Compass**, **Dose Paths**, **Fingerprint Strip**, **Effect Ladder**, **Window**, **Neighbourhood Card**, **Selectivity Spectrum** and **Engagement Ladder**. Underneath: verified loaders and a statistics layer (empirical-Bayes signatures, pathway scores, NNLS projection, dose-path bend test, 4PL fits with bootstrap, neighbour nulls). See the [gallery](docs/gallery.md), the [API reference](docs/api.md) and the milestone reports in [`docs/`](docs/).
 
 ## Before / after
 

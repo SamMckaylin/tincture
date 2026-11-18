@@ -63,6 +63,35 @@ Each plot answers one drug-discovery question. The left column is the plot peopl
 - the top genes with 95% intervals, grouped by gene set; intervals crossing zero are grey
 - the count strip keeps the volcano's overview: how many genes went up and down across the transcriptome
 
+## Engagement Ladder: Does potency hold up from enzyme to cell to phenotype, and where does it break?
+
+Biochemical Kd (Davis et al. 2011), live-cell engagement in HEK293 (Vasta et al. 2018; apparent IC50 from single-dose occupancy) and PRISM viability (CS6). The dasatinib flag is discussed in the CS6 report: BCR-ABL in K562 vs full-length ABL1 in HEK293 is the likely reason.
+
+| Classic: grouped bar chart of potencies | tincture: Engagement Ladder |
+|---|---|
+| ![classic](img/gallery/engagement_ladder_classic.png) | ![Engagement Ladder](img/gallery/engagement_ladder.png) |
+
+**Caption (generated).** dasatinib on ABL1: 3.0 log shift biochemical→cellular (ATP expectation not computed: no ATP Km); phenotype is 48× more potent than cellular target engagement. Flag: phenotype ≥ 48× more potent than ABL1 engagement: likely driven by something other than ABL1. crizotinib on ALK: 2.0 log shift biochemical→cellular (ATP expectation not computed: no ATP Km); phenotype is 4× more potent than cellular target engagement. crizotinib on MET: 1.4 log shift biochemical→cellular (ATP expectation not computed: no ATP Km); phenotype is in line with cellular target engagement. Dashed segments join rungs measured in different cell systems. Note: dasatinib/ABL1: ATP-shift flag not evaluated (no ATP Km supplied for ABL1). Note: crizotinib/ALK: ATP-shift flag not evaluated (no ATP Km supplied for ALK). Note: crizotinib/MET: ATP-shift flag not evaluated (no ATP Km supplied for MET).
+
+**What changes:**
+- every rung on one concentration axis, so the shift from protein to cell to phenotype is read directly
+- automatic flags: phenotype far more potent than engagement (off-target?), shifts beyond the expected ATP effect, exposure below the active concentration
+- dashed segments and labels wherever rungs come from different cell systems
+
+## Selectivity Spectrum: How specific is this compound?
+
+Crizotinib engagement of 178 kinases in live HEK293 cells (Vasta et al. 2018, apparent IC50 from occupancy at 1 µM); the biochemical spectrum (Davis 2011) is in the CS6 report: 69 kinases bound biochemically, 13 engaged in cells.
+
+| Classic: bar chart of most potent targets | tincture: Selectivity Spectrum |
+|---|---|
+| ![classic](img/gallery/selectivity_crizotinib_nanobret_classic.png) | ![Selectivity Spectrum](img/gallery/selectivity_crizotinib_nanobret.png) |
+
+**Caption (generated).** crizotinib binds its intended target ALK, MET at 52.6 nM (rank 2 of 178 tested). 7 off-target(s) are highlighted (3.9% of the panel); the strongest is MAP4K2 at 52.6 nM. No exposure (free Cmax) was supplied, so off-targets are highlighted if within 10-fold of the intended target's potency.
+
+**What changes:**
+- the whole panel, strongest first, with censored (not detected) targets shown and counted
+- off-targets judged against exposure (free Cmax band) when supplied, otherwise by a stated 10-fold rule; panel coverage in the footer
+
 ## Window: Is there a dose that works without the toxicity?
 
 PRISM 20Q2 secondary (Corsello et al. 2020, CC BY 4.0): dabrafenib in A375 (BRAF V600E melanoma) against the median of 676 non-skin lines as the toxicity proxy (CS2).
@@ -92,20 +121,6 @@ LINCS L1000 phase II (GEO GSE70138) consensus signatures, 603 compounds with Rep
 - each neighbour gets a q value against the library's own null, and only confident neighbours are coloured; with none, the card says so
 - similarity intervals from the query's own replicate signatures
 - the query's structure sits next to its neighbours
-
-## Selectivity Spectrum: how specific is this compound?
-
-Shown on a **synthetic** panel: the kinase panels (NanoBRET, Davis 2011) could not be downloaded automatically (see `docs/data_status.md`).
-
-| Classic: bar chart of most potent targets | tincture: Selectivity Spectrum |
-|---|---|
-| ![classic](img/gallery/selectivity_synthetic_classic.png) | ![Selectivity Spectrum](img/gallery/selectivity_synthetic.png) |
-
-**Caption (generated).** synthetic_cpd binds its intended target SYN_TARGET at 3.16 nM (rank 1 of 74 tested). 2 off-target(s) are highlighted (2.7% of the panel); the strongest is SYN_OFF0 at 10 nM. Off-targets in peach have potency stronger than the low end of the free Cmax range (30 nM–300 nM).
-
-**What changes:**
-- the whole panel, strongest first, with censored (not detected) targets shown and counted
-- off-targets judged against exposure (free Cmax band) when supplied, otherwise by a stated 10-fold rule; panel coverage in the footer
 
 ## Plate Atlas: can we trust this plate?
 
