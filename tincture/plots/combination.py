@@ -126,7 +126,7 @@ def _uncertainty_text(r: SynergyResult) -> str:
     if r.uncertainty == "noise_sd":
         return (
             "Only one replicate matrix: intervals come from a parametric bootstrap with a "
-            f"well-level noise SD of {r.noise_sd:.3g} viability."
+            f"well-level noise SD of {r.noise_sd:.3g} viability ({r.noise_method})."
         )
     return "No replicate matrices and no noise estimate: no significance was assessed."
 
@@ -397,7 +397,7 @@ def surface(
     cm: ComboMatrix,
     model: Literal["bliss", "zip", "hsa"] = "bliss",
     single_agent: Literal["fitted", "observed"] = "fitted",
-    noise_sd: float | None = None,
+    noise_sd: float | Literal["matrix"] | None = None,
     cmax_a: tuple[float, float] | None = None,
     cmax_b: tuple[float, float] | None = None,
     min_excess: float = MIN_EXCESS,
@@ -408,7 +408,8 @@ def surface(
 ) -> PlotResult:
     """Combination Surface for one full concentration matrix. ``cmax_a``/``cmax_b``: free
     Cmax ranges (molar) of each drug; never pass a guess. ``noise_sd``: well-level SD of
-    viability, used only when there is a single replicate matrix."""
+    viability, used only when there is a single replicate matrix; ``"matrix"`` estimates it
+    from the matrix itself (``stats.synergy.matrix_noise_sd``)."""
     for c in (cmax_a, cmax_b):
         if c is not None and not (0 < c[0] <= c[1] < 1):
             raise TinctureDataError("cmax ranges must be (low, high) in molar.")

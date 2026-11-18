@@ -124,3 +124,25 @@ def test_partial_grid_refused_and_bad_inputs():
 def test_zip_needs_four_levels():
     with pytest.raises(TinctureDataError, match="ZIP needs at least 4"):
         synergy(hand_matrix(), "zip")
+
+
+def test_grid_noise_sd_recovers_known_noise():
+    from tincture.stats.synergy import grid_noise_sd, matrix_noise_sd
+
+    ests = []
+    for seed in range(20):
+        cm = synthetic_matrix(n_rep=1, sd=0.05, seed=seed)
+        ests.append(matrix_noise_sd(cm))
+    assert all(e is not None for e in ests)
+    assert 0.035 < float(np.median(ests)) < 0.07  # true SD 0.05
+    # saturated grid: no estimate rather than a falsely small one
+    assert grid_noise_sd(np.full((7, 7), 0.02)) is None
+
+
+def test_matrix_noise_option_single_replicate():
+    cm = synthetic_matrix(synergy=0.25, n_rep=1, sd=0.03)
+    r = synergy(cm, "bliss", noise_sd="matrix")
+    assert r.uncertainty == "noise_sd" and "second differences" in r.noise_method
+    assert r.n_significant >= 5
+    null = synergy(synthetic_matrix(synergy=0.0, n_rep=1, sd=0.03, seed=3), noise_sd="matrix")
+    assert null.n_significant <= 1

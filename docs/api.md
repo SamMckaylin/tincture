@@ -180,27 +180,33 @@ coverage footer.
 Engagement Ladder: does potency hold up from protein to cell to phenotype, and where does
 it break? (HANDOVER §5.10)
 
-#### `tc.engagement_ladder(table: PotencyTable, pairs: Sequence[tuple[str, str]], km_atp: Mapping[str, float] | None = None, atp: tuple[float, float] = (0.001, 0.005), title: str = 'Engagement Ladder', footer: Sequence[str] = ()) -> PlotResult`
+#### `tc.engagement_ladder(table: PotencyTable, pairs: Sequence[tuple[str, str]], km_atp: Mapping[str, KmATP] | None = None, atp: tuple[float, float] = (0.001, 0.005), title: str = 'Engagement Ladder', footer: Sequence[str] = ()) -> PlotResult`
 
 Engagement Ladder for (compound, target) ``pairs``.
 
 ``table`` needs a ``rung`` column with values from :data:`RUNGS`; optional columns
 ``px_lo``/``px_hi`` (interval), ``cell_system`` and ``label``. ``km_atp``: ATP Km
-(molar) per target, for the Cheng–Prusoff wedge; never pass a guess.
+(molar) per target, one value or a (low, high) range, for the Cheng–Prusoff wedge;
+never pass a guess.
 
-#### `atp_shift(km_atp: float, atp: tuple[float, float] = (0.001, 0.005)) -> tuple[float, float]`
+#### `atp_shift(km_atp: KmATP, atp: tuple[float, float] = (0.001, 0.005)) -> tuple[float, float]`
 
 Expected Cheng–Prusoff shift (log10) for ATP-competitive inhibitors.
+
+``km_atp`` is one Km or a (low, high) range (e.g. unphosphorylated vs phosphorylated
+enzyme); the wedge then spans every combination, log10(1 + ATP_low / Km_high) to
+log10(1 + ATP_high / Km_low), so the shift flag fires only beyond the widest expectation.
 
 ### `tincture.plots.combination`
 
 Combination Surface and Combination Lift (HANDOVER §5.11).
 
-#### `tc.combination_surface(cm: ComboMatrix, model: Literal['bliss', 'zip', 'hsa'] = 'bliss', single_agent: Literal['fitted', 'observed'] = 'fitted', noise_sd: float | None = None, cmax_a: tuple[float, float] | None = None, cmax_b: tuple[float, float] | None = None, min_excess: float = 0.1, alpha: float = 0.05, n_boot: int = 200, title: str = 'Combination Surface', footer: Sequence[str] = ()) -> PlotResult`
+#### `tc.combination_surface(cm: ComboMatrix, model: Literal['bliss', 'zip', 'hsa'] = 'bliss', single_agent: Literal['fitted', 'observed'] = 'fitted', noise_sd: float | Literal['matrix'] | None = None, cmax_a: tuple[float, float] | None = None, cmax_b: tuple[float, float] | None = None, min_excess: float = 0.1, alpha: float = 0.05, n_boot: int = 200, title: str = 'Combination Surface', footer: Sequence[str] = ()) -> PlotResult`
 
 Combination Surface for one full concentration matrix. ``cmax_a``/``cmax_b``: free
 Cmax ranges (molar) of each drug; never pass a guess. ``noise_sd``: well-level SD of
-viability, used only when there is a single replicate matrix.
+viability, used only when there is a single replicate matrix; ``"matrix"`` estimates it
+from the matrix itself (``stats.synergy.matrix_noise_sd``).
 
 #### `lift_table(d: pd.DataFrame, group: str | None = None, facet: str | None = None) -> pd.DataFrame`
 
@@ -437,6 +443,11 @@ All per-screen matrix summaries, with a ``screen`` column (e.g. 'gdsc-008').
 #### `load_bashi_matrices(drug_1: str, drug_2: str, cell_lines: Sequence[str] | None = None) -> dict[str, ComboMatrix]`
 
 7×7 matrices for one drug pair (orientation as screened: drug A = lib1).
+
+#### `load_bashi_replicated(screens: Sequence[str] = ('gdsc-008', 'gdsc-010'), min_replicates: int = 3) -> list[ComboMatrix]`
+
+Every cell line × drug pair screened as ≥ ``min_replicates`` replicate 7×7 matrices
+(used to calibrate single-replicate noise estimates).
 
 #### `load_jaaks2022(screen: str = 'original') -> pd.DataFrame`
 
@@ -983,7 +994,18 @@ Rank library references by cosine similarity to ``query`` (aligned to lib.featur
 
 Combination effect models: Bliss (default), HSA and ZIP, with honest uncertainty.
 
-#### `synergy(cm: ComboMatrix, model: Model = 'bliss', single_agent: Literal['fitted', 'observed'] = 'fitted', noise_sd: float | None = None, n_boot: int = 200, alpha: float = 0.05, min_excess: float = 0.1, ceiling: float = 0.9, seed: int = 0) -> SynergyResult`
+#### `grid_noise_sd(grid: np.ndarray, lo: float = 0.1, hi: float = 0.9, min_triplets: int = 10) -> float | None`
+
+Well-level SD from one concentration grid: second differences y₋₁ − 2y₀ + y₊₁ along
+rows and columns (removes linear dose trends), over triplets whose three viabilities all
+lie in (lo, hi) (saturated wells understate noise); robust scale
+σ = 1.4826 · median|Δ²| / √6. None if fewer than ``min_triplets`` triplets qualify.
+
+#### `matrix_noise_sd(cm: ComboMatrix) -> float | None`
+
+Median over replicate matrices of :func:`grid_noise_sd` (single-well SD).
+
+#### `synergy(cm: ComboMatrix, model: Model = 'bliss', single_agent: Literal['fitted', 'observed'] = 'fitted', noise_sd: float | Literal['matrix'] | None = None, n_boot: int = 200, alpha: float = 0.05, min_excess: float = 0.1, ceiling: float = 0.9, seed: int = 0) -> SynergyResult`
 
 Excess over a reference model on a full concentration matrix.
 

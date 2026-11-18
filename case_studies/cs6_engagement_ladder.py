@@ -12,8 +12,12 @@ Pre-specified (fixed before the first run):
    (BCR-ABL), crizotinib→ALK / KARPAS-299 (NPM-ALK), crizotinib→MET / MKN45 (MET-amplified).
    Pass: at least one gets the off-target flag (phenotype > 10× more potent than cellular
    engagement).
-3. The ATP-shift (purple) flag needs kinase ATP Km values, which none of the sources
-   provides; it is reported as not evaluated.
+3. The ATP-shift (purple) flag needs kinase ATP Km values, which none of the data sources
+   provides. **Update (2026-11-18, user decision):** Km values found and verified in three
+   open-access papers (docs/data_status.md) are now applied, labelled per source. Rule, fixed
+   before rerunning: where two enzyme forms are reported (ALK, MET), the wedge spans both
+   (``atp_shift`` with a Km range), so the flag fires only beyond the widest expectation.
+   Reported, not pass/fail: the Km values come from different constructs and assays.
 
 Phenotype potency: absolute IC50 (50% viability) from a 4PL fit of PRISM replicate wells
 with 200 bootstrap refits; a curve already below 50% at the lowest dose is censored "<",
@@ -49,6 +53,16 @@ PAIRS = [
     ("crizotinib", "MET", "ACH-000356", "MKN45"),
 ]
 PAPER = {"crizotinib": (13, 69), "dasatinib": (22, 44)}
+#: ATP Km (molar), verified against the papers' full text (docs/data_status.md).
+KM_ATP: dict[str, float | tuple[float, float]] = {
+    "ABL1": 9.78e-6,  # Grover et al., PLoS One 2015 (ABL core, ADP Quest)
+    "ALK": (1.34e-4, 1.59e-4),  # Bresler et al., Sci Transl Med 2011 (unphospho / phospho)
+    "MET": (6.0e-5, 2.0e-4),  # Behshad et al., Curr Chem Genomics 2010 (phospho / unphospho)
+}
+KM_SOURCES = (
+    "ATP Km: ABL1 9.8 µM (Grover 2015); ALK 134–159 µM (Bresler 2011); MET 60–200 µM "
+    "(Behshad 2010); different constructs and assays"
+)
 FOOT = (
     "Biochemical: Davis et al. 2011 (Kd); cellular: Vasta et al. 2018 (NanoBRET, HEK293); "
     "phenotype: PRISM 20Q2 secondary (CC BY 4.0)",
@@ -167,8 +181,9 @@ def run() -> tuple[Path, bool]:
     lad = tc.engagement_ladder(
         PotencyTable(pd.DataFrame(rows)),
         pairs,
+        km_atp=KM_ATP,
         title="Engagement Ladder: dasatinib and crizotinib",
-        footer=FOOT,
+        footer=(*FOOT, KM_SOURCES),
     )
     rep.text("## 2. Engagement ladders")
     if skipped:
@@ -183,6 +198,9 @@ def run() -> tuple[Path, bool]:
                 if r.shift_bc is not None
                 else "—",
                 "off-target flag": "yes" if "off_target" in r.flags else "no",
+                "expected ATP shift (log)": f"{r.atp_shift[0]:.1f}–{r.atp_shift[1]:.1f}"
+                if r.atp_shift
+                else "—",
                 "ATP-shift flag": "not evaluated (no ATP Km)"
                 if "shift" in r.not_evaluated
                 else ("yes" if "shift" in r.flags else "no"),
@@ -216,11 +234,15 @@ def run() -> tuple[Path, bool]:
         f"flagged: {', '.join(flagged) or 'none'} (phenotype > 10× more potent than cellular "
         "engagement of the intended target).",
     )
-    rep.check(
-        "ATP-shift (permeability / efflux) flag",
-        False,
-        "not evaluated: none of the sources gives kinase ATP Km values, so the Cheng–Prusoff "
-        "wedge cannot be drawn on real data (the flag is tested on synthetic ladders).",
+    shifted = [f"{r.compound}/{r.target}" for r in results if "shift" in r.flags]
+    rep.text(
+        "**ATP-shift (purple) flag, reported, not pass/fail:** "
+        + (f"fires for {', '.join(shifted)}." if shifted else "fires for none.")
+        + " Caveats: the three Km values come from different labs, constructs (ABL core "
+        "with SH3/SH2; ALK and MET kinase domains) and assay formats; the cellular rung is "
+        "an apparent IC50 from single-dose occupancy; and the biochemical rung is a binding "
+        "Kd for an isolated kinase domain. A shift beyond the ATP wedge is therefore a prompt "
+        "to check permeability, efflux or the construct difference, not a conclusion."
     )
     ok = ok1 and ok2
     rep.text("", f"**Overall (pre-specified checks 1–2): {'PASS' if ok else 'FAIL'}**")

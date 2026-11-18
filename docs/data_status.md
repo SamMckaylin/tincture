@@ -145,7 +145,7 @@ Gene identifiers are symbols. sci-Plex features are Ensembl ids and are mapped t
 | ALK | **0.134 ± 0.007 mM** (unphosphorylated), **0.159 ± 0.012 mM** (autophosphorylated) | kinase domain 1090–1416, His6, Sf9; 32P; 10 mM MgCl2, no Mn2+; peptide 1 mM; 25 °C | Bresler et al., Sci Transl Med 2011, PMC3319004, Table 1 ("Determined at 1mM peptide"). The authors note these are "higher than reported from Mn2+-containing assays". |
 | MET | **60 ± 12 µM** (phosphorylated), **200 ± 38 µM** (unphosphorylated) | catalytic domain 956–1391, His6, Sf21; HTRF; 10 mM MgCl2; peptide 1 µM; 25 °C | Behshad et al., Curr Chem Genomics 2010, PMC2885599, Table 1 |
 
-Caveats: three labs, three constructs and assay formats, so the values are not directly comparable; ALK and MET depend on phosphorylation state (MET 3.3-fold). Values for other kinases were not found or conflicted (KIT: 9 µM vs 370 µM). Not yet applied to CS6.
+Caveats: three labs, three constructs and assay formats, so the values are not directly comparable; ALK and MET depend on phosphorylation state (MET 3.3-fold). Values for other kinases were not found or conflicted (KIT: 9 µM vs 370 µM). **Applied in CS6 (2026-11-18, user decision)**: ABL1 as a single value; ALK and MET as (low, high) ranges spanning both enzyme forms, so the wedge is the widest expectation.
 
 ## D4: GDSC anchored combinations (Jaaks, Coker et al., Nature 2022)
 

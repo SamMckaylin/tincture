@@ -128,3 +128,16 @@ def test_engagement_baseline():
     ).figure()
     check_colorblind(fig)
     return fig
+
+
+def test_atp_wedge_with_km_range_is_widest_expectation():
+    lo, hi = atp_shift((6e-5, 2e-4))  # e.g. phospho vs unphospho enzyme
+    assert lo == pytest.approx(np.log10(1 + 1e-3 / 2e-4))
+    assert hi == pytest.approx(np.log10(1 + 5e-3 / 6e-5))
+    assert atp_shift((2e-4, 6e-5)) == (lo, hi)  # order does not matter
+    # shift inside the range-widened wedge: no flag; beyond it: flag
+    # 1.6-log shift: inside the widened wedge (≤ 1.93), beyond the 200 µM-only wedge (1.41)
+    inside = tc.engagement_ladder(typical(cell_px=7.4), PAIR, km_atp={"SYNK1": (6e-5, 2e-4)})
+    assert "shift" not in _flags(inside)
+    single = tc.engagement_ladder(typical(cell_px=7.4), PAIR, km_atp={"SYNK1": 2e-4})
+    assert "shift" in _flags(single)

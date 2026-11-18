@@ -32,6 +32,9 @@ left to show an excess, so excess there is meaningless (handover §5.11).
   of single-agent fits): parametric bootstrap adding N(0, noise_sd) to every well; two-sided
   p = (2·min(#≤0, #≥0) + 1) / (B + 1), so the smallest attainable p is 1/(B + 1)
   (use B ≥ 200 so that BH over ~50 cells can reach q < 0.05);
+* one replicate with ``noise_sd="matrix"``: the well-level SD is estimated from the matrix
+  itself (:func:`matrix_noise_sd`, second differences along rows and columns of unsaturated
+  wells), then the same parametric bootstrap;
 * otherwise: no interval and no significance claim (the caption says so).
 
 A cell is in the **significant region** when q < ``alpha`` **and** excess ≥ ``min_excess``
@@ -60,6 +63,37 @@ MODELS: tuple[str, ...] = ("bliss", "hsa", "zip")
 MODEL_NAMES = {"bliss": "Bliss independence", "hsa": "highest single agent (HSA)", "zip": "ZIP"}
 CEILING = 0.9  # expected inhibition above which excess is masked
 MIN_EXCESS = 0.1
+NOISE_RANGE = (0.1, 0.9)  # viability range of wells used to estimate matrix noise
+NOISE_MIN_TRIPLETS = 10
+
+
+def grid_noise_sd(
+    grid: np.ndarray,
+    lo: float = NOISE_RANGE[0],
+    hi: float = NOISE_RANGE[1],
+    min_triplets: int = NOISE_MIN_TRIPLETS,
+) -> float | None:
+    """Well-level SD from one concentration grid: second differences y₋₁ − 2y₀ + y₊₁ along
+    rows and columns (removes linear dose trends), over triplets whose three viabilities all
+    lie in (lo, hi) (saturated wells understate noise); robust scale
+    σ = 1.4826 · median|Δ²| / √6. None if fewer than ``min_triplets`` triplets qualify."""
+    d: list[float] = []
+    for arr in (grid, grid.T):
+        for row in arr:
+            for k in range(1, len(row) - 1):
+                t = row[k - 1 : k + 2]
+                if np.isfinite(t).all() and ((t > lo) & (t < hi)).all():
+                    d.append(float(t[0] - 2 * t[1] + t[2]))
+    if len(d) < min_triplets:
+        return None
+    return float(1.4826 * np.median(np.abs(d)) / np.sqrt(6))
+
+
+def matrix_noise_sd(cm: ComboMatrix) -> float | None:
+    """Median over replicate matrices of :func:`grid_noise_sd` (single-well SD)."""
+    est = [grid_noise_sd(cm.grid(g)) for _, g in cm.data.groupby("replicate")]
+    vals = [e for e in est if e is not None]
+    return float(np.median(vals)) if vals else None
 
 
 @dataclass
@@ -85,6 +119,7 @@ class SynergyResult:
     fit_b: FourPL | None
     alpha: float = 0.05
     min_excess: float = MIN_EXCESS
+    noise_method: str = ""
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -200,7 +235,7 @@ def synergy(
     cm: ComboMatrix,
     model: Model = "bliss",
     single_agent: Literal["fitted", "observed"] = "fitted",
-    noise_sd: float | None = None,
+    noise_sd: float | Literal["matrix"] | None = None,
     n_boot: int = 200,
     alpha: float = 0.05,
     min_excess: float = MIN_EXCESS,
@@ -270,7 +305,20 @@ def synergy(
             p = 2 * sps.t.sf(np.abs(t), np.maximum(n - 1, 1))
         p = np.where((n >= 2) & np.isfinite(p), p, np.nan)
         p = np.where((n >= 2) & (se == 0), 0.0, p)
-    elif noise_sd is not None and noise_sd > 0:
+    noise_method = ""
+    if len(reps) < 2 and noise_sd == "matrix":
+        est = matrix_noise_sd(cm)
+        if est is None:
+            notes.append(
+                "too few unsaturated wells to estimate the matrix noise; no significance claimed"
+            )
+            noise_sd = None
+        else:
+            noise_sd = est
+            noise_method = "estimated from the matrix (second differences)"
+    elif isinstance(noise_sd, float | int):
+        noise_method = "stated"
+    if len(reps) < 2 and isinstance(noise_sd, float | int) and noise_sd > 0:
         kind = "noise_sd"
         boots = []
         for _ in range(n_boot):
@@ -314,11 +362,12 @@ def synergy(
         antagonistic=ant,
         uncertainty=kind,
         n_replicates=len(reps),
-        noise_sd=noise_sd if kind == "noise_sd" else None,
+        noise_sd=float(noise_sd) if kind == "noise_sd" else None,  # type: ignore[arg-type]
         single_agent="fitted" if model == "zip" else single_agent,
         fit_a=fa,
         fit_b=fb,
         alpha=alpha,
         min_excess=min_excess,
+        noise_method=noise_method if kind == "noise_sd" else "",
         notes=notes,
     )

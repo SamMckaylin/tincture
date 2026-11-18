@@ -104,18 +104,27 @@ class LadderResult:
         return next((r for r in self.rungs if r.rung == rung), None)
 
 
-def atp_shift(km_atp: float, atp: tuple[float, float] = CELLULAR_ATP) -> tuple[float, float]:
-    """Expected Cheng–Prusoff shift (log10) for ATP-competitive inhibitors."""
-    if km_atp <= 0:
+KmATP = float | tuple[float, float]
+
+
+def atp_shift(km_atp: KmATP, atp: tuple[float, float] = CELLULAR_ATP) -> tuple[float, float]:
+    """Expected Cheng–Prusoff shift (log10) for ATP-competitive inhibitors.
+
+    ``km_atp`` is one Km or a (low, high) range (e.g. unphosphorylated vs phosphorylated
+    enzyme); the wedge then spans every combination, log10(1 + ATP_low / Km_high) to
+    log10(1 + ATP_high / Km_low), so the shift flag fires only beyond the widest expectation.
+    """
+    lo_km, hi_km = (km_atp, km_atp) if isinstance(km_atp, int | float) else sorted(km_atp)
+    if lo_km <= 0:
         raise TinctureDataError("ATP Km must be positive (molar).")
-    return (float(np.log10(1 + atp[0] / km_atp)), float(np.log10(1 + atp[1] / km_atp)))
+    return (float(np.log10(1 + atp[0] / hi_km)), float(np.log10(1 + atp[1] / lo_km)))
 
 
 def compute(
     d: pd.DataFrame,
     compound: str,
     target: str,
-    km_atp: float | None = None,
+    km_atp: KmATP | None = None,
     atp: tuple[float, float] = CELLULAR_ATP,
 ) -> LadderResult:
     rows = d[(d["compound_id"] == compound) & (d["target"] == target)]
@@ -218,10 +227,10 @@ def _panel(results: list[LadderResult], key: str, lo: float, hi: float) -> Panel
             )
             p.add(
                 TextMark(
-                    x=x0 * 10 ** res.atp_shift[1],
-                    y=yc + 0.32,
-                    text="expected from ATP",
-                    ha="center",
+                    x=x0 * 10 ** res.atp_shift[0],
+                    y=yc + 0.1,
+                    text="grey: expected from ATP",
+                    ha="right",
                     va="top",
                     color="ink_soft",
                     size=6.0,
@@ -397,7 +406,8 @@ def build_spec(
         rungs=", ".join(RUNG_LABELS[r].lower() for r in rungs_used),
         atp=(
             "Expected ATP shift: Cheng–Prusoff log10(1 + [ATP]/Km,ATP) with cellular ATP "
-            f"{fmt_conc(atp[0])}–{fmt_conc(atp[1])} (grey wedge)."
+            f"{fmt_conc(atp[0])}–{fmt_conc(atp[1])} (grey wedge; where a Km range is given, "
+            "the wedge spans all combinations of ATP and Km)."
             if any(r.atp_shift for r in results)
             else "No ATP Km was supplied, so no expected ATP shift is drawn and the "
             "permeability/efflux flag is not evaluated."
@@ -459,7 +469,7 @@ def build_classic_spec(results: list[LadderResult] | None = None, **_: object) -
 def plot(
     table: PotencyTable,
     pairs: Sequence[tuple[str, str]],
-    km_atp: Mapping[str, float] | None = None,
+    km_atp: Mapping[str, KmATP] | None = None,
     atp: tuple[float, float] = CELLULAR_ATP,
     title: str = "Engagement Ladder",
     footer: Sequence[str] = (),
@@ -468,7 +478,8 @@ def plot(
 
     ``table`` needs a ``rung`` column with values from :data:`RUNGS`; optional columns
     ``px_lo``/``px_hi`` (interval), ``cell_system`` and ``label``. ``km_atp``: ATP Km
-    (molar) per target, for the Cheng–Prusoff wedge; never pass a guess.
+    (molar) per target, one value or a (low, high) range, for the Cheng–Prusoff wedge;
+    never pass a guess.
     """
     d = table.data
     if "rung" not in d.columns:

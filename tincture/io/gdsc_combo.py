@@ -95,43 +95,84 @@ def load_bashi_matrices(
     w = pd.concat(parts, ignore_index=True)
     out: dict[str, ComboMatrix] = {}
     for line, g in w.groupby("CELL_LINE_NAME"):
-        g = g.assign(replicate=g["BARCODE"].astype(str) + "_" + g["cmatrix"].astype(str))
-        combo = pd.DataFrame(
-            {
-                "conc_a": g["lib1_conc"] * UM,
-                "conc_b": g["lib2_conc"] * UM,
-                "viability": 1 - g["inhibition"],
-                "replicate": g["replicate"],
-            }
+        out[str(line)] = _matrix_from_wells(
+            g, name_a, name_b, str(line), res[res["CELL_LINE_NAME"] == line]
         )
-        sa = g.drop_duplicates(["replicate", "lib1_conc"])
-        sb = g.drop_duplicates(["replicate", "lib2_conc"])
-        singles = pd.concat(
-            [
-                pd.DataFrame(
-                    {"conc_a": sa["lib1_conc"] * UM, "conc_b": 0.0,
-                     "viability": 1 - sa["lib1_y"], "replicate": sa["replicate"]}
-                ),
-                pd.DataFrame(
-                    {"conc_a": 0.0, "conc_b": sb["lib2_conc"] * UM,
-                     "viability": 1 - sb["lib2_y"], "replicate": sb["replicate"]}
-                ),
-            ]
-        )  # fmt: skip
-        rmse = np.sqrt(np.nanmean(np.r_[g["lib1_RMSE"].to_numpy(), g["lib2_RMSE"].to_numpy()] ** 2))
-        summary = res[res["CELL_LINE_NAME"] == line]
-        out[str(line)] = ComboMatrix(
-            pd.concat([combo, singles], ignore_index=True),
-            name_a,
-            name_b,
-            cell_line=str(line),
-            source="Bashi et al. 2024 (GDSC matrix screens, figshare project 163378)",
-            meta={
-                "noise_sd": float(rmse),
-                "cancer_type": str(g["CANCER_TYPE"].iloc[0]),
-                "gdsc_summary": summary,
-            },
+    return out
+
+
+def _matrix_from_wells(
+    g: pd.DataFrame, name_a: str, name_b: str, line: str, summary: pd.DataFrame | None
+) -> ComboMatrix:
+    """One ComboMatrix from the per-well rows of one cell line × drug pair."""
+    g = g.assign(replicate=g["BARCODE"].astype(str) + "_" + g["cmatrix"].astype(str))
+    combo = pd.DataFrame(
+        {
+            "conc_a": g["lib1_conc"] * UM,
+            "conc_b": g["lib2_conc"] * UM,
+            "viability": 1 - g["inhibition"],
+            "replicate": g["replicate"],
+        }
+    )
+    sa = g.drop_duplicates(["replicate", "lib1_conc"])
+    sb = g.drop_duplicates(["replicate", "lib2_conc"])
+    singles = pd.concat(
+        [
+            pd.DataFrame(
+                {"conc_a": sa["lib1_conc"] * UM, "conc_b": 0.0,
+                 "viability": 1 - sa["lib1_y"], "replicate": sa["replicate"]}
+            ),
+            pd.DataFrame(
+                {"conc_a": 0.0, "conc_b": sb["lib2_conc"] * UM,
+                 "viability": 1 - sb["lib2_y"], "replicate": sb["replicate"]}
+            ),
+        ]
+    )  # fmt: skip
+    rmse = np.sqrt(np.nanmean(np.r_[g["lib1_RMSE"].to_numpy(), g["lib2_RMSE"].to_numpy()] ** 2))
+    return ComboMatrix(
+        pd.concat([combo, singles], ignore_index=True),
+        name_a,
+        name_b,
+        cell_line=line,
+        source="Bashi et al. 2024 (GDSC matrix screens, figshare project 163378)",
+        meta={
+            "noise_sd": float(rmse),
+            "cancer_type": str(g["CANCER_TYPE"].iloc[0]),
+            "gdsc_summary": summary,
+        },
+    )
+
+
+def load_bashi_replicated(
+    screens: Sequence[str] = ("gdsc-008", "gdsc-010"), min_replicates: int = 3
+) -> list[ComboMatrix]:
+    """Every cell line × drug pair screened as ≥ ``min_replicates`` replicate 7×7 matrices
+    (used to calibrate single-replicate noise estimates)."""
+    res = bashi_results()
+    names = dict(
+        zip(
+            pd.concat([res["lib1_ID"], res["lib2_ID"]]).astype(int),
+            pd.concat([res["lib1_name"], res["lib2_name"]]).astype(str),
+            strict=True,
         )
+    )
+    zf = zipfile.ZipFile(fetch(BASHI2024["well_stats"]))
+    out: list[ComboMatrix] = []
+    for screen in screens:
+        with zf.open(_WELL_FILES[screen]) as fh:
+            w = pd.read_csv(fh, usecols=_WELL_COLS)
+        keys = ["CELL_LINE_NAME", "lib1_drug_id", "lib2_drug_id"]
+        n = w.drop_duplicates([*keys, "BARCODE", "cmatrix"]).groupby(keys).size()
+        for key, g in w.groupby(keys):
+            if n[key] < min_replicates:
+                continue
+            line = g["CELL_LINE_NAME"].iloc[0]
+            i1, i2 = int(g["lib1_drug_id"].iloc[0]), int(g["lib2_drug_id"].iloc[0])
+            out.append(
+                _matrix_from_wells(
+                    g, names.get(i1, str(i1)), names.get(i2, str(i2)), str(line), None
+                )
+            )
     return out
 
 
