@@ -33,7 +33,21 @@ such triplets no significance is claimed. Same pass thresholds as version 1 (≥
    valid only if the median ratio estimate / replicate SD is ≥ 0.8 (not anti-conservative);
    otherwise its checks are reported as invalid, whatever they show.
 
-Figures (version 2): ML-2 for both combinations (named in the paper; screened with both).
+Result of version 2: calibration gate FAILED (median ratio 0.71 on 384 matrices), so its
+checks are invalid; the version-2 numbers are kept in the report for the record.
+
+**Version 3 (pre-registered 2026-11-20, chosen by the user as option d; written before any
+version-3 run).** Noise SD = version-2 estimate × a calibration factor
+(``stats.synergy.calibrate_noise_factor``: median of replicate SD / estimate) derived on
+the replicated matrices (≥ 3 replicates) of screen **gdsc-008 only**.
+6. **Calibration gate (held out):** on the replicated matrices of **gdsc-010** (not used to
+   derive the factor), the median ratio calibrated estimate / replicate SD must be ≥ 0.8;
+   otherwise version 3's checks are invalid.
+Same pass thresholds as before (≥ 4 of 6 beneficial lines with a Bliss region; ≥ 80% of
+non-beneficial lines without one).
+
+Figures (version 3): ML-2 for both combinations (named in the paper; screened with both),
+Bliss and ZIP.
 
 GDSC data: figures and report stay local (internal research use).
 
@@ -55,7 +69,13 @@ from _report import Report, md_table
 
 import tincture as tc
 from tincture.io.gdsc_combo import bashi_results, load_bashi_matrices, load_bashi_replicated
-from tincture.stats.synergy import NOISE_RANGE, matrix_noise_sd, synergy
+from tincture.stats.synergy import (
+    NoiseCalibration,
+    calibrate_noise_factor,
+    matrix_noise_sd,
+    noise_calibration,
+    synergy,
+)
 
 BENEFICIAL = ("Selumetinib", "Venetoclax")
 NAMED = ["EoL-1-cell", "ML-2", "OCI-AML5", "NOMO-1", "KG-1", "HL-60"]
@@ -65,11 +85,16 @@ PE = "HSA ≥ 0.1 & viab ≤ 0.5, point est. (cells)"
 FOOT = ("GDSC matrix screens, Bashi et al., Cancer Discov 2024 (internal research use)",)
 
 
-def evaluate(mats: dict, lines: list[str], version: int) -> pd.DataFrame:
+def evaluate(mats: dict, lines: list[str], version: int, factor: float = 1.0) -> pd.DataFrame:
     rows = []
     for line in lines:
         cm = mats[line]
-        est = matrix_noise_sd(cm) if version == 2 else float(cm.meta["noise_sd"])
+        if version == 1:
+            est: float | None = float(cm.meta["noise_sd"])
+        else:
+            est = matrix_noise_sd(cm)
+            if est is not None and version == 3:
+                est *= factor
         sd = est if est is not None else 0.0
         b = synergy(cm, "bliss", noise_sd=sd or None)
         h = synergy(cm, "hsa", noise_sd=sd or None)
@@ -91,25 +116,13 @@ def evaluate(mats: dict, lines: list[str], version: int) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def calibration() -> tuple[pd.DataFrame, float]:
-    rows = []
-    for cm in load_bashi_replicated(("gdsc-008", "gdsc-010"), min_replicates=3):
-        c = cm.combo
-        w = c.groupby(["conc_a", "conc_b"])["viability"].agg(["mean", "var", "size"])
-        w = w[(w["size"] >= 3) & (w["mean"] > NOISE_RANGE[0]) & (w["mean"] < NOISE_RANGE[1])]
-        if len(w) < 5:
-            continue
-        est = matrix_noise_sd(cm)
-        if est is None:
-            continue
-        rep_sd = float(np.sqrt(w["var"].mean()))
-        rows.append(
-            {"cell line": cm.cell_line, "pair": f"{cm.drug_a} + {cm.drug_b}",
-             "replicates": len(cm.replicates), "estimate": est, "replicate SD": rep_sd,
-             "ratio": est / rep_sd}
-        )  # fmt: skip
-    t = pd.DataFrame(rows)
-    return t, float(t["ratio"].median())
+def _cal_text(cal: NoiseCalibration, what: str) -> str:
+    t = cal.table
+    return (
+        f"{what}: {len(t)} replicated matrices; ratio of the estimate to the empirical "
+        f"replicate SD: median {cal.median_ratio:.2f} (IQR {t['ratio'].quantile(0.25):.2f}–"
+        f"{t['ratio'].quantile(0.75):.2f})."
+    )
 
 
 def run() -> tuple[Path, bool]:
@@ -139,19 +152,31 @@ def run() -> tuple[Path, bool]:
         f"{'pass' if k1b >= 0.8 * len(v1b) else 'FAIL'}."
     )
 
-    rep.text("## Version 2 calibration (gate)")
-    cal, ratio = calibration()
+    rep.text("## Version 2 (noise estimated from each matrix, uncalibrated)")
+    rep08 = load_bashi_replicated(("gdsc-008",), min_replicates=3)
+    rep10 = load_bashi_replicated(("gdsc-010",), min_replicates=3)
+    cal2 = noise_calibration(rep08 + rep10)
+    rep.text(_cal_text(cal2, "Version 2 gate (both screens)"))
+    v2a, v2b = evaluate(m1, NAMED, 2), evaluate(m2, nb_lines, 2)
+    rep.text("### Selumetinib + venetoclax", md_table(v2a))
+    rep.text("### Olaparib + AZD5153", md_table(v2b))
     rep.text(
-        f"{len(cal)} replicated matrices (≥ 3 replicates, gdsc-008 and gdsc-010). Ratio of "
-        f"the single-matrix estimate to the empirical replicate SD: median {ratio:.2f} "
-        f"(IQR {cal['ratio'].quantile(0.25):.2f}–{cal['ratio'].quantile(0.75):.2f}); "
-        f"estimate median {cal['estimate'].median():.3f}, replicate SD median "
-        f"{cal['replicate SD'].median():.3f}."
+        f"Version 2 is {'valid' if cal2.median_ratio >= 0.8 else 'INVALID (gate failed)'}: "
+        f"beneficial region in {int((v2a['Bliss region (cells)'] > 0).sum())} of {len(v2a)}; "
+        f"non-beneficial clean in {int((v2b['Bliss region (cells)'] == 0).sum())} of "
+        f"{len(v2b)}."
     )
-    valid = ratio >= 0.8
 
-    rep.text("## Version 2 (noise estimated from each matrix)")
-    t1, t2 = evaluate(m1, NAMED, 2), evaluate(m2, nb_lines, 2)
+    rep.text("## Version 3 (calibrated: factor from gdsc-008, gate on gdsc-010)")
+    factor = calibrate_noise_factor(rep08)
+    cal3 = noise_calibration(rep10, factor=factor)
+    rep.text(
+        f"Calibration factor from {len(noise_calibration(rep08).table)} gdsc-008 replicated "
+        f"matrices: **×{factor:.2f}**.",
+        _cal_text(cal3, "Held-out gate (gdsc-010, calibrated)"),
+    )
+    valid = cal3.median_ratio >= 0.8
+    t1, t2 = evaluate(m1, NAMED, 3, factor), evaluate(m2, nb_lines, 3, factor)
     rep.text("### 1. Selumetinib + venetoclax (reported beneficial in AML)", md_table(t1))
     rep.text("### 2. Olaparib + AZD5153 (reported no benefit)", md_table(t2))
 
@@ -162,6 +187,7 @@ def run() -> tuple[Path, bool]:
                 cm,
                 model=model,
                 noise_sd="matrix",
+                noise_factor=factor,
                 title=f"Combination Surface ({'Bliss' if model == 'bliss' else 'ZIP'}): "
                 f"{cm.drug_a} + {cm.drug_b}, {FIGURE_LINE} (AML)",
                 footer=FOOT,
@@ -173,21 +199,22 @@ def run() -> tuple[Path, bool]:
     rho = float(both[["mean Bliss excess", "GDSC Bliss_matrix"]].corr(method="spearman").iloc[0, 1])
     rep.text("## Ground-truth checks")
     rep.check(
-        "Version 2 calibration gate (median ratio ≥ 0.8)",
+        "Version 3 held-out calibration gate (median ratio ≥ 0.8)",
         valid,
-        f"median ratio {ratio:.2f} over {len(cal)} replicated matrices"
-        + ("" if valid else "; version 2 checks are invalid"),
+        f"median ratio {cal3.median_ratio:.2f} over {len(cal3.table)} gdsc-010 matrices "
+        f"with the gdsc-008 factor ×{factor:.2f}"
+        + ("" if valid else "; version 3 checks are invalid"),
     )
     k1 = int((t1["Bliss region (cells)"] > 0).sum())
     ok1 = rep.check(
-        "Version 2, beneficial combination shows a significant excess region",
+        "Version 3, beneficial combination shows a significant excess region",
         valid and k1 >= 4,
         f"selumetinib + venetoclax: Bliss region in {k1} of {len(t1)} named AML lines "
         f"(HSA benefit region in {int((t1['HSA region (cells)'] > 0).sum())} of {len(t1)}).",
     )
     k2 = int((t2["Bliss region (cells)"] == 0).sum())
     ok2 = rep.check(
-        "Version 2, non-beneficial combination shows no region",
+        "Version 3, non-beneficial combination shows no region",
         valid and k2 >= 0.8 * len(t2),
         f"olaparib + AZD5153: no Bliss region in {k2} of {len(t2)} AML lines "
         f"(no HSA region in {int((t2['HSA region (cells)'] == 0).sum())} of {len(t2)}).",
@@ -207,8 +234,8 @@ def run() -> tuple[Path, bool]:
     ok = ok1 and ok2
     rep.text(
         "",
-        f"**Overall (version 2, checks 1–2 with the calibration gate): "
-        f"{'PASS' if ok else 'FAIL'}**. Version 1 result is kept above.",
+        f"**Overall (version 3, checks 1–2 with the held-out calibration gate): "
+        f"{'PASS' if ok else 'FAIL'}**. Versions 1 and 2 are kept above.",
     )
     _ = np
     return rep.write(), ok

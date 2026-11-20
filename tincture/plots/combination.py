@@ -398,6 +398,8 @@ def surface(
     model: Literal["bliss", "zip", "hsa"] = "bliss",
     single_agent: Literal["fitted", "observed"] = "fitted",
     noise_sd: float | Literal["matrix"] | None = None,
+    noise_factor: float | None = None,
+    allow_single_replicate: bool = False,
     cmax_a: tuple[float, float] | None = None,
     cmax_b: tuple[float, float] | None = None,
     min_excess: float = MIN_EXCESS,
@@ -409,12 +411,15 @@ def surface(
     """Combination Surface for one full concentration matrix. ``cmax_a``/``cmax_b``: free
     Cmax ranges (molar) of each drug; never pass a guess. ``noise_sd``: well-level SD of
     viability, used only when there is a single replicate matrix; ``"matrix"`` estimates it
-    from the matrix itself (``stats.synergy.matrix_noise_sd``)."""
+    from the matrix itself (``stats.synergy.matrix_noise_sd``), scaled by ``noise_factor``
+    (``stats.synergy.calibrate_noise_factor``). Without a factor, single-replicate
+    significance needs the explicit ``allow_single_replicate=True`` tag."""
     for c in (cmax_a, cmax_b):
         if c is not None and not (0 < c[0] <= c[1] < 1):
             raise TinctureDataError("cmax ranges must be (low, high) in molar.")
     kw = {"single_agent": single_agent, "noise_sd": noise_sd, "alpha": alpha,
-          "min_excess": min_excess, "n_boot": n_boot}  # fmt: skip
+          "min_excess": min_excess, "n_boot": n_boot, "noise_factor": noise_factor,
+          "allow_single_replicate": allow_single_replicate}  # fmt: skip
     r = synergy(cm, model, **kw)  # type: ignore[arg-type]
     hsa = r if model == "hsa" else synergy(cm, "hsa", **kw)  # type: ignore[arg-type]
     spec = _surface_spec(cm, r, hsa, cmax_a, cmax_b, title, footer)

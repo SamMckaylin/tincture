@@ -34,7 +34,12 @@ left to show an excess, so excess there is meaningless (handover §5.11).
   (use B ≥ 200 so that BH over ~50 cells can reach q < 0.05);
 * one replicate with ``noise_sd="matrix"``: the well-level SD is estimated from the matrix
   itself (:func:`matrix_noise_sd`, second differences along rows and columns of unsaturated
-  wells), then the same parametric bootstrap;
+  wells) and **scaled by a calibration factor** (``noise_factor``, from
+  :func:`calibrate_noise_factor` on replicated matrices of the same screen), then the same
+  parametric bootstrap. A within-matrix estimate only sees within-plate noise and
+  understates replicate-to-replicate noise (0.71× on 384 GDSC matrices), so without a
+  factor no significance is claimed unless ``allow_single_replicate=True`` is passed, in
+  which case the uncalibrated estimate is used and the caption says so;
 * otherwise: no interval and no significance claim (the caption says so).
 
 A cell is in the **significant region** when q < ``alpha`` **and** excess ≥ ``min_excess``
@@ -94,6 +99,55 @@ def matrix_noise_sd(cm: ComboMatrix) -> float | None:
     est = [grid_noise_sd(cm.grid(g)) for _, g in cm.data.groupby("replicate")]
     vals = [e for e in est if e is not None]
     return float(np.median(vals)) if vals else None
+
+
+def replicate_noise_sd(cm: ComboMatrix, min_wells: int = 5) -> float | None:
+    """Empirical well-level SD across ≥ 3 replicate matrices: pooled variance over
+    combination wells whose mean viability lies in ``NOISE_RANGE``."""
+    w = cm.combo.groupby(["conc_a", "conc_b"])["viability"].agg(["mean", "var", "size"])
+    w = w[(w["size"] >= 3) & (w["mean"] > NOISE_RANGE[0]) & (w["mean"] < NOISE_RANGE[1])]
+    if len(w) < min_wells:
+        return None
+    return float(np.sqrt(w["var"].mean()))
+
+
+@dataclass
+class NoiseCalibration:
+    """Per-matrix single-matrix estimates vs replicate SDs, and the median ratio."""
+
+    table: pd.DataFrame  # columns: cell_line, pair, replicates, estimate, replicate_sd, ratio
+    factor: float = 1.0  # factor applied to the estimate before taking ratios
+
+    @property
+    def median_ratio(self) -> float:
+        return float(self.table["ratio"].median()) if len(self.table) else float("nan")
+
+
+def noise_calibration(matrices: list[ComboMatrix], factor: float = 1.0) -> NoiseCalibration:
+    """Compare ``factor`` × :func:`matrix_noise_sd` with :func:`replicate_noise_sd` on
+    matrices screened in ≥ 3 replicates. Ratio < 1 = the estimate understates noise."""
+    rows = []
+    for cm in matrices:
+        rep = replicate_noise_sd(cm)
+        est = matrix_noise_sd(cm)
+        if rep is None or est is None or rep <= 0:
+            continue
+        rows.append(
+            {"cell_line": cm.cell_line, "pair": f"{cm.drug_a} + {cm.drug_b}",
+             "replicates": len(cm.replicates), "estimate": est * factor,
+             "replicate_sd": rep, "ratio": est * factor / rep}
+        )  # fmt: skip
+    return NoiseCalibration(pd.DataFrame(rows), factor)
+
+
+def calibrate_noise_factor(matrices: list[ComboMatrix]) -> float:
+    """Factor that makes the within-matrix estimate match replicate noise: the median of
+    replicate SD / estimate over replicated matrices. Derive it on matrices other than those
+    it is checked on."""
+    t = noise_calibration(matrices).table
+    if t.empty:
+        raise TinctureDataError("No replicated matrices with enough unsaturated wells.")
+    return float(np.median(1.0 / t["ratio"]))
 
 
 @dataclass
@@ -236,6 +290,8 @@ def synergy(
     model: Model = "bliss",
     single_agent: Literal["fitted", "observed"] = "fitted",
     noise_sd: float | Literal["matrix"] | None = None,
+    noise_factor: float | None = None,
+    allow_single_replicate: bool = False,
     n_boot: int = 200,
     alpha: float = 0.05,
     min_excess: float = MIN_EXCESS,
@@ -313,9 +369,28 @@ def synergy(
                 "too few unsaturated wells to estimate the matrix noise; no significance claimed"
             )
             noise_sd = None
-        else:
+        elif noise_factor is not None:
+            if noise_factor <= 0:
+                raise TinctureDataError("noise_factor must be positive.")
+            noise_sd = est * noise_factor
+            noise_method = (
+                f"estimated from the matrix and scaled ×{noise_factor:.2f} by calibration on "
+                "replicated matrices"
+            )
+        elif allow_single_replicate:
             noise_sd = est
-            noise_method = "estimated from the matrix (second differences)"
+            noise_method = "estimated from the matrix, uncalibrated (allow_single_replicate)"
+            notes.append(
+                "uncalibrated single-replicate analysis: a within-matrix noise estimate can "
+                "understate replicate-to-replicate noise, so significance may be overstated"
+            )
+        else:
+            notes.append(
+                "single replicate: the within-matrix noise estimate is uncalibrated, so no "
+                "significance is claimed (pass noise_factor from calibrate_noise_factor, or "
+                "allow_single_replicate=True to proceed anyway)"
+            )
+            noise_sd = None
     elif isinstance(noise_sd, float | int):
         noise_method = "stated"
     if len(reps) < 2 and isinstance(noise_sd, float | int) and noise_sd > 0:

@@ -139,10 +139,43 @@ def test_grid_noise_sd_recovers_known_noise():
     assert grid_noise_sd(np.full((7, 7), 0.02)) is None
 
 
-def test_matrix_noise_option_single_replicate():
+def test_single_replicate_matrix_noise_needs_calibration_or_tag():
     cm = synthetic_matrix(synergy=0.25, n_rep=1, sd=0.03)
-    r = synergy(cm, "bliss", noise_sd="matrix")
-    assert r.uncertainty == "noise_sd" and "second differences" in r.noise_method
-    assert r.n_significant >= 5
-    null = synergy(synthetic_matrix(synergy=0.0, n_rep=1, sd=0.03, seed=3), noise_sd="matrix")
+    # guard: uncalibrated within-matrix noise is not used without the explicit tag
+    r0 = synergy(cm, "bliss", noise_sd="matrix")
+    assert r0.uncertainty == "none" and r0.n_significant == 0
+    assert any("allow_single_replicate" in n for n in r0.notes)
+    # calibrated
+    r1 = synergy(cm, "bliss", noise_sd="matrix", noise_factor=1.4)
+    assert r1.uncertainty == "noise_sd" and "scaled ×1.40" in r1.noise_method
+    assert r1.n_significant >= 5
+    # tag: uncalibrated, flagged
+    r2 = synergy(cm, "bliss", noise_sd="matrix", allow_single_replicate=True)
+    assert r2.uncertainty == "noise_sd" and "uncalibrated" in r2.noise_method
+    assert any("uncalibrated single-replicate analysis" in n for n in r2.notes)
+    null = synergy(
+        synthetic_matrix(synergy=0.0, n_rep=1, sd=0.03, seed=3), noise_sd="matrix",
+        noise_factor=1.4,
+    )  # fmt: skip
     assert null.n_significant <= 1
+    with pytest.raises(TinctureDataError, match="positive"):
+        synergy(cm, noise_sd="matrix", noise_factor=0.0)
+
+
+def test_noise_calibration_factor_recovers_inflation():
+    from tincture.stats.synergy import calibrate_noise_factor, noise_calibration
+
+    # replicated matrices whose replicates differ by a plate offset the within-matrix
+    # estimate cannot see: the factor must exceed 1 and fix the ratio
+    mats = []
+    for seed in range(12):
+        cm = synthetic_matrix(n_rep=4, sd=0.03, seed=seed)
+        rng = np.random.default_rng(100 + seed)
+        off = {r: rng.normal(0, 0.04) for r in cm.replicates}
+        d = cm.data.assign(viability=cm.data["viability"] + cm.data["replicate"].map(off))
+        mats.append(ComboMatrix(d, "A", "B", f"L{seed}"))
+    raw = noise_calibration(mats)
+    assert raw.median_ratio < 0.9
+    f = calibrate_noise_factor(mats)
+    assert f > 1.1
+    assert noise_calibration(mats, factor=f).median_ratio == pytest.approx(1.0, abs=0.15)

@@ -141,3 +141,13 @@ def test_combination_lift_baseline():
     fig = tc.combination_lift(_lift_df(), "A", "B", group="grp").figure()
     check_colorblind(fig)
     return fig
+
+
+def test_surface_single_replicate_matrix_noise_requires_tag_or_calibration():
+    cm = synthetic_matrix(synergy=0.25, n_rep=1, sd=0.03)
+    res = tc.combination_surface(cm, noise_sd="matrix")
+    assert not _outline(res) and "allow_single_replicate" in res.caption
+    tagged = tc.combination_surface(cm, noise_sd="matrix", allow_single_replicate=True)
+    assert "uncalibrated" in tagged.caption and "uncalibrated" in tagged.methods
+    cal = tc.combination_surface(cm, noise_sd="matrix", noise_factor=1.4)
+    assert _outline(cal) and "calibration" in cal.methods

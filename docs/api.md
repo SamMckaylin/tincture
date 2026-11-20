@@ -201,12 +201,14 @@ log10(1 + ATP_high / Km_low), so the shift flag fires only beyond the widest exp
 
 Combination Surface and Combination Lift (HANDOVER §5.11).
 
-#### `tc.combination_surface(cm: ComboMatrix, model: Literal['bliss', 'zip', 'hsa'] = 'bliss', single_agent: Literal['fitted', 'observed'] = 'fitted', noise_sd: float | Literal['matrix'] | None = None, cmax_a: tuple[float, float] | None = None, cmax_b: tuple[float, float] | None = None, min_excess: float = 0.1, alpha: float = 0.05, n_boot: int = 200, title: str = 'Combination Surface', footer: Sequence[str] = ()) -> PlotResult`
+#### `tc.combination_surface(cm: ComboMatrix, model: Literal['bliss', 'zip', 'hsa'] = 'bliss', single_agent: Literal['fitted', 'observed'] = 'fitted', noise_sd: float | Literal['matrix'] | None = None, noise_factor: float | None = None, allow_single_replicate: bool = False, cmax_a: tuple[float, float] | None = None, cmax_b: tuple[float, float] | None = None, min_excess: float = 0.1, alpha: float = 0.05, n_boot: int = 200, title: str = 'Combination Surface', footer: Sequence[str] = ()) -> PlotResult`
 
 Combination Surface for one full concentration matrix. ``cmax_a``/``cmax_b``: free
 Cmax ranges (molar) of each drug; never pass a guess. ``noise_sd``: well-level SD of
 viability, used only when there is a single replicate matrix; ``"matrix"`` estimates it
-from the matrix itself (``stats.synergy.matrix_noise_sd``).
+from the matrix itself (``stats.synergy.matrix_noise_sd``), scaled by ``noise_factor``
+(``stats.synergy.calibrate_noise_factor``). Without a factor, single-replicate
+significance needs the explicit ``allow_single_replicate=True`` tag.
 
 #### `lift_table(d: pd.DataFrame, group: str | None = None, facet: str | None = None) -> pd.DataFrame`
 
@@ -1005,7 +1007,29 @@ lie in (lo, hi) (saturated wells understate noise); robust scale
 
 Median over replicate matrices of :func:`grid_noise_sd` (single-well SD).
 
-#### `synergy(cm: ComboMatrix, model: Model = 'bliss', single_agent: Literal['fitted', 'observed'] = 'fitted', noise_sd: float | Literal['matrix'] | None = None, n_boot: int = 200, alpha: float = 0.05, min_excess: float = 0.1, ceiling: float = 0.9, seed: int = 0) -> SynergyResult`
+#### `replicate_noise_sd(cm: ComboMatrix, min_wells: int = 5) -> float | None`
+
+Empirical well-level SD across ≥ 3 replicate matrices: pooled variance over
+combination wells whose mean viability lies in ``NOISE_RANGE``.
+
+#### class `NoiseCalibration(table: pd.DataFrame, factor: float = 1.0)`
+
+Per-matrix single-matrix estimates vs replicate SDs, and the median ratio.
+
+- `median_ratio`
+
+#### `noise_calibration(matrices: list[ComboMatrix], factor: float = 1.0) -> NoiseCalibration`
+
+Compare ``factor`` × :func:`matrix_noise_sd` with :func:`replicate_noise_sd` on
+matrices screened in ≥ 3 replicates. Ratio < 1 = the estimate understates noise.
+
+#### `calibrate_noise_factor(matrices: list[ComboMatrix]) -> float`
+
+Factor that makes the within-matrix estimate match replicate noise: the median of
+replicate SD / estimate over replicated matrices. Derive it on matrices other than those
+it is checked on.
+
+#### `synergy(cm: ComboMatrix, model: Model = 'bliss', single_agent: Literal['fitted', 'observed'] = 'fitted', noise_sd: float | Literal['matrix'] | None = None, noise_factor: float | None = None, allow_single_replicate: bool = False, n_boot: int = 200, alpha: float = 0.05, min_excess: float = 0.1, ceiling: float = 0.9, seed: int = 0) -> SynergyResult`
 
 Excess over a reference model on a full concentration matrix.
 
