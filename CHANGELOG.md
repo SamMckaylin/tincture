@@ -10,6 +10,8 @@
 - CS4 PASS (AZD7762 + camptothecin benefit in colon, MSS 59% vs MSI 20% at the low anchor); CS5 (selumetinib + venetoclax vs olaparib + AZD5153) see docs/milestone_7.md; CS8 PASS (MAPK output down by 3 h; p53 from 12–24 h; Hallmark apoptosis never active).
 - Kinase ATP Km values (ABL1, ALK, MET) found and verified in open-access papers and applied in CS6 (Km ranges supported); the purple flag fires for dasatinib/ABL1 and crizotinib/ALK.
 - CS5 version 2 (within-matrix noise estimate) pre-registered with a calibration gate on 384 replicated matrices; the gate failed (estimate 0.71× replicate SD), so CS5 stands as FAIL under both versions.
+- Option (d): calibrated single-replicate noise (`noise_factor`, `calibrate_noise_factor`) and an explicit `allow_single_replicate` tag. CS5 version 3: held-out calibration valid (ratio 1.16) but the beneficial combination shows a region in 1 of 6 lines; CS5 stays FAIL (specific, not sensitive enough for single replicates).
+- Speed: array-based synergy bootstrap and analytic Jacobians (Bliss 3×, ZIP 1.6× faster, identical results).
 
 ### M6: Engagement Ladder (2026-11-18)
 - `io.davis` (Davis 2011 Kd, 442 assays × 72 inhibitors; censored blanks; construct classes), `io.nanobret` (Vasta 2018 single-dose occupancy → apparent IC50, model-based), `io.kinase_names` (curated synonyms); both files pinned as manual downloads. Reproduces the paper: crizotinib 13 engaged in cells vs 69 bound biochemically.

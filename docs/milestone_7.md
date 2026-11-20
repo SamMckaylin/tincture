@@ -132,3 +132,36 @@ You chose **(b) for CS5** and asked me to **wire in the ATP Km values**.
 
 - **(d) Calibrated noise:** scale the within-matrix estimate by the factor measured on the replicated matrices (1 / 0.71 ≈ 1.4, ideally estimated per screen), pre-registered as version 3 with a fresh gate. One caveat: these 384 matrices were used to *derive* the factor, so the gate would need held-out matrices (e.g. calibrate on gdsc-008, check on gdsc-010).
 - **Or accept the result:** the outcome is informative as it stands. Single-replicate 7×7 matrices can support a point-estimate *screen* but not a per-cell significance claim. The Surface already says so in its caption when no noise estimate is given.
+
+## Follow-up 2 (2026-11-20): option (d), the single-replicate tag, PR, speed
+
+You chose **(d)**, with a tag that still allows single-replicate analysis.
+
+### Library changes
+
+- **Calibrated mode:** `noise_sd="matrix"` together with `noise_factor` (from `stats.synergy.calibrate_noise_factor` on replicated matrices).
+- **Single replicates without a factor:** no significance is claimed, and the caption explains how to proceed.
+- **The tag:** `allow_single_replicate=True` runs the uncalibrated analysis anyway. The methods text says "uncalibrated" and the caption warns that significance may be overstated.
+- **Calibration helpers:** `replicate_noise_sd`, `noise_calibration`, `calibrate_noise_factor`.
+- All of the above is tested, including a synthetic plate-offset case where the factor restores the ratio to about 1.
+
+### CS5 version 3: calibration valid, check 1 still FAILS
+
+| | Result |
+|---|---|
+| Calibration factor (gdsc-008, 203 replicated matrices) | ×1.52 |
+| Held-out gate (gdsc-010, 181 matrices) | ✅ median ratio 1.16 (IQR 0.95–1.39): calibrated noise is honest, slightly conservative |
+| Selumetinib + venetoclax: Bliss region in ≥ 4 of 6 named AML lines | ❌ **1 of 6** (NOMO-1); HSA benefit region in 3 of 6 |
+| Olaparib + AZD5153: no region in ≥ 80% | ✅ 10 of 10 |
+
+**Reading.**
+- With noise that is calibrated against real replicates, a single 7 × 7 matrix cannot show a significant per-cell excess for this combination in most of the lines the paper names.
+- The paper's "active" calls are point estimates (HSA > 0.1 and Emax > 0.5). The diagnostic shows that this rule also fires in 6 of 10 non-beneficial lines.
+- So the plot is specific (no false regions in 26 negative-control cell-line analyses across versions 2 and 3) but not sensitive enough for single replicates.
+- I consider this a genuine result about the data rather than a defect to tune away, and I have not changed the rule again. CS5 stands as FAIL under v1, v2 (invalid) and v3. The report keeps all three.
+
+### Also done
+
+- **Speed:** array-based bootstrap and analytic Jacobians (4PL, ZIP). Bliss per matrix 3.9 s → 1.3 s; ZIP 25 s → 16 s. Results are unchanged: tests and baselines pass, and the CS2 and CS6 check lines are identical after a rerun.
+- **Package name:** **"tincture" is taken on PyPI** (an unrelated Django/SQLAlchemy project, one release in 2013), as is `pytincture`. `tincture-plots`, `tinctureplots` and `tincture-viz` are free (checked 2026-11-20). Your decision.
+- **PR:** [SamMckaylin/tincture#1](https://github.com/SamMckaylin/tincture/pull/1) banks M0–M7 and these follow-ups.
