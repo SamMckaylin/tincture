@@ -1,0 +1,80 @@
+# Milestone 2: signatures, shrinkage, pathway scores, Retrievability, Plate Atlas
+
+## What was built
+
+**Statistics (`tincture.stats`)**
+- `ebayes`: limma-style empirical-Bayes variance moderation (`fit_f_dist`, `squeeze_var`, optional mean–variance trend). Tested against simulated priors and trigamma-inverse round-trips.
+- `signatures`: logCPM signatures against **same-stratum vehicle** (cell line × time; never across lines), with:
+  - pooled residual variance, moderated t and p;
+  - normal-prior empirical-Bayes LFC shrinkage (posterior SD stored as `se`).
+
+  Also `PerturbationSet.signatures()`, and `replicate_profiles()`: per-well z versus vehicle, with **label-free** feature selection so retrieval isn't inflated.
+- `pathways`: ULM pathway scores in matrix form (works without `[omics]`); Jaccard de-duplication of gene sets; Ensembl→symbol mapping.
+- `map_retrieval`: AP, mAP, BH q-values and the CAT curve with an exact hypergeometric null band. Two nulls:
+  - **label permutation** (default; exact enumeration when C(pool, k) ≤ null size);
+  - copairs' **copied** null.
+- `zprime`: Z′ (classic and robust), a layout-aware edge effect, and control drift within cell line.
+
+**Data:** Hallmark (50 sets) and PROGENy (14 pathways) gene sets, fetched from OmniPath and cached with SHA-256. The GDSC loader now uses categorical dtypes and integer keys: 16,354 plates load in 35 s, where the first full run was killed for running out of memory.
+
+**Plots** (restyled after M2 to match the design whiteboard; see `docs/design/style.md`)
+- `tc.retrievability` (§5.5, the gate):
+  - mAP strip with null band, q = 0.05 boundary, focus labels and greyed non-retrievable conditions;
+  - CAT panel; classic replicate-scatter fallback;
+  - writes a gate mask to `adata.uns["tincture_retrievable"]` for `gate=True` in later plots.
+- `tc.plate_atlas` (§5.6):
+  - plate map with automatic density view at 1536 wells; circles for controls and squares for others at ≤384; absent wells grey;
+  - Z′ per plate with the 0.5 line and failing plates in terracotta; edge-ratio and control-drift panels;
+  - above 1,000 plates the per-plate panels switch to a binned median and 5–95% band (every failing plate still drawn); at 16k plates the raw points were an unreadable solid block;
+  - classic plain-heatmap fallback.
+
+**Tests:** 219 unit, guard and visual tests, plus 7 opt-in real-data tests, all passing. New image baselines for Retrievability and Plate Atlas, colour-blind-checked.
+
+## Acceptance criteria
+
+| Criterion | Status |
+|---|---|
+| Stats tests pass | ✅ EB prior recovery; known fold change recovered (1.0 / 0.5 log2); null compound < 3% false positives; shrinkage shrinks noise more than signal; ULM = statsmodels OLS t and = decoupler (1e-9); mAP = copairs 0.6.0 golden (AP to 1e-9, mAP exact, p within MC error); Z′ formula; injected edge effect and drift recovered |
+| CS3 report generated | ✅ `case_studies/out/cs3_plate_qc/report.md` on **all 16,354 GDSC2 plates** (ground-truth checks ✅) |
+| Retrievability gate works on D1 | ✅ `case_studies/out/m2_retrievability_sciplex/report.md`: all three lines, all checks ✅ |
+
+## What was verified on real data
+
+**sci-Plex3, 24 h** (2 wells per condition, 32 vehicle wells per line):
+
+| | A549 | MCF7 | K562 |
+|---|---|---|---|
+| retrievable (q < 0.05) | 274/752 | 277/752 | 272/752 |
+| median mAP, 10 nM → 10 µM | 0.29 → 1.00 | 0.09 → 1.00 | 0.29 → 0.75 |
+| HDACi vs others retrievable at ≥ 1 µM | 65% vs 40% | 65% vs 49% | 69% vs 40% |
+| vehicle pseudo-conditions at p < 0.05 (calibration) | 7% | 7% | 5% |
+
+Pathway check: abexinostat 1 µM in A549 gives Hallmark E2F targets −18 and G2M −17 (t), and PROGENy p53 +10.5. That's cell-cycle arrest, as expected for an HDAC inhibitor.
+
+**GDSC2 (CS3), 16,354 plates:**
+- median Z′ 0.60 (IQR 0.54–0.65); **1,774 plates (10.8%) below 0.5**;
+- the outermost seeded ring reads **60%** of the interior (IQR 0.34–0.89), a strong edge effect;
+- 791 plates leave the outer ring unseeded;
+- the negative-control level relative to same-line plates falls **27% across scan order** (Spearman ρ = −0.35, p < 0.001), a real long-term assay-signal decline worth knowing about;
+- 11.6 M well positions are absent from the release and are drawn grey;
+- the binned view shows the edge effect easing from about plate 7,000 in scan order.
+
+## What failed or changed along the way
+
+1. **copairs' `copied` null can't pass FDR on duplicate designs.** With 2 replicates and 32 vehicles the smallest possible p is 1/33, so 0 of 752 sci-Plex conditions could ever reach q < 0.05. I added an **exact label-permutation null** (now the default; copairs 0.6 also moved to a permutation null) and a guard. The plot and caption now say "design cannot reach significance" whenever the design caps p above what FDR needs. The `copied` null is kept and matches copairs exactly.
+2. **`copairs` is not a dependency.** It pulls in duckdb, about 65 MB. Parity is tested against a frozen golden file generated by copairs 0.6.0 in a throwaway venv (`tests/fixtures/make_copairs_golden.py`).
+3. **GDSC edge effect needed a layout-aware definition.** NC-1 controls are never on the edge, and some plates leave the outer ring unseeded (≈ 0 signal). Measuring the outermost ring blindly gave ratios near 0.02. The edge is now the outermost *seeded* ring, and the basis is stated in the caption and footer.
+4. **"Drift" in raw control intensity was confounded with cell line**, because consecutive plates are different lines with different brightness. Drift is now measured relative to plates of the same cell line.
+5. **Out of memory** on the first full CS3 run (15 GB box). Fixed with categoricals and integer keys; the full run now peaks at about 10.7 GB. Still heavy, so noted for future work (streaming per-plate QC).
+6. **The categorical GDSC table broke a real-data test.** `.map()` on a categorical column returns a categorical, so per-plate division failed. CI can't see this (no data there); the opt-in real-data suite caught it. I added `PlateTable.relative_to()` and documented the categoricals.
+7. **A checkpoint commit was pushed with lint and format errors**, because my check chain piped through `tail`, which hid failures. Fixed in the next commit; checks now run with `pipefail`.
+
+## Decisions taken (delegated by you)
+
+- **Retrievability:** own implementation with a permutation null, validated against copairs (rationale above).
+- **Palette:** muted, colour-blind-safe purple and green (`docs/design/theme_colorblind.md`).
+
+## Open questions
+
+1. **Stress axis for Dose Paths (§9.5, needed in M3):** a curated stress/apoptosis gene set (e.g. Hallmark apoptosis + p53 + UPR) or a viability readout? sci-Plex has no viability readout per well, but cell count per well (`n_cells`) is a usable proxy. My recommendation: a gene-set stress score by default, with `n_cells` loss as a second axis option.
+2. Still open from §9: package name (PyPI check), Bliss vs HSA default (M7).

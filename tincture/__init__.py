@@ -1,0 +1,57 @@
+"""tincture: question-first, publication-quality plots for drug-discovery data.
+
+Public API (grows milestone by milestone)::
+
+    import tincture as tc
+    res = tc.demo(df)                 # every plot returns a PlotResult
+    res.caption, res.methods          # templated reading guide + methods paragraph
+    tc.export(res, "fig1", preset="nature_double")
+"""
+
+from tincture import theme
+from tincture._version import __version__
+from tincture.errors import TinctureDataError, TinctureError, TinctureWarning
+from tincture.export import export
+from tincture.model.combo import ComboMatrix
+from tincture.plots.combination import lift as combination_lift
+from tincture.plots.combination import surface as combination_surface
+from tincture.plots.compass import plot as compass
+from tincture.plots.demo import demo
+from tincture.plots.dose_paths import plot as dose_paths
+from tincture.plots.effect_ladder import plot as effect_ladder
+from tincture.plots.engagement import plot as engagement_ladder
+from tincture.plots.fingerprint import plot as fingerprint
+from tincture.plots.neighbourhood import plot as neighbourhood
+from tincture.plots.onset import plot as onset_timeline
+from tincture.plots.plate_atlas import plot as plate_atlas
+from tincture.plots.retrievability import plot as retrievability
+from tincture.plots.selectivity import plot as selectivity
+from tincture.plots.window import plot as window
+from tincture.render.mpl import render_mpl
+from tincture.result import PlotResult
+
+__all__ = [
+    "ComboMatrix",
+    "PlotResult",
+    "TinctureDataError",
+    "TinctureError",
+    "TinctureWarning",
+    "__version__",
+    "combination_lift",
+    "combination_surface",
+    "compass",
+    "demo",
+    "dose_paths",
+    "effect_ladder",
+    "engagement_ladder",
+    "export",
+    "fingerprint",
+    "neighbourhood",
+    "onset_timeline",
+    "plate_atlas",
+    "render_mpl",
+    "retrievability",
+    "selectivity",
+    "theme",
+    "window",
+]
