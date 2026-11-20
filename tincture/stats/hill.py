@@ -61,6 +61,17 @@ def _model(p: np.ndarray, lx: np.ndarray) -> np.ndarray:
         return bottom + (top - bottom) / (1.0 + 10.0 ** (hill * (lx - le50)))
 
 
+def _jac(p: np.ndarray, lx: np.ndarray) -> np.ndarray:
+    """Analytic Jacobian of :func:`_model` (columns: bottom, top, log10 EC50, hill)."""
+    bottom, top, le50, hill = p
+    with np.errstate(over="ignore", invalid="ignore"):
+        u = 10.0 ** (hill * (lx - le50))
+        d = 1.0 + u
+        g = (top - bottom) * u * np.log(10.0) / d**2
+        j = np.column_stack([u / d, 1.0 / d, hill * g, -(lx - le50) * g])
+    return np.nan_to_num(j)
+
+
 def fit_4pl(dose: np.ndarray, response: np.ndarray, start: FourPL | None = None) -> HillFit:
     """Fit a 4PL to treated points (dose > 0, molar). ``start`` warm-starts a single
     optimisation (used by the bootstrap); otherwise six starting points are tried."""
@@ -86,7 +97,12 @@ def fit_4pl(dose: np.ndarray, response: np.ndarray, start: FourPL | None = None)
     for st in starts:
         p0 = np.clip(st, np.array(lb) + 1e-9, np.array(ub) - 1e-9)
         r = least_squares(
-            lambda p: _model(p, lx) - y, p0, bounds=(lb, ub), loss="soft_l1", f_scale=0.1
+            lambda p: _model(p, lx) - y,
+            p0,
+            jac=lambda p: _jac(p, lx),
+            bounds=(lb, ub),
+            loss="soft_l1",
+            f_scale=0.1,
         )
         if best is None or r.cost < best.cost:
             best = r

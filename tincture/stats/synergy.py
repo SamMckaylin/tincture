@@ -190,24 +190,72 @@ class SynergyResult:
 # ---------------------------------------------------------------------------------------
 # single agents
 # ---------------------------------------------------------------------------------------
+@dataclass
+class _Arrays:
+    """Index arrays for one data set, built once so bootstrap draws avoid pandas."""
+
+    sa_rows: np.ndarray  # row positions of drug-A single-agent wells
+    sa_conc: np.ndarray
+    sb_rows: np.ndarray
+    sb_conc: np.ndarray
+    c_rows: np.ndarray  # combination wells on the grid
+    cell: np.ndarray  # flat grid index (b * n_a + a) of each combination well
+    y: np.ndarray  # viability of every row
+    shape: tuple[int, int]
+
+
+def _arrays(cm: ComboMatrix, data: pd.DataFrame, singles: pd.DataFrame | None = None) -> _Arrays:
+    la, lb = cm.levels_a, cm.levels_b
+    ca = data["conc_a"].to_numpy(float)
+    cb = data["conc_b"].to_numpy(float)
+    y = data["viability"].to_numpy(float)
+    ia = {v: i for i, v in enumerate(la)}
+    ib = {v: j for j, v in enumerate(lb)}
+    comb = np.flatnonzero((ca > 0) & (cb > 0))
+    cell = np.array([ib.get(cb[r], -1) * len(la) + ia.get(ca[r], -1) for r in comb], int)
+    on = np.array([ca[r] in ia and cb[r] in ib for r in comb], bool)
+    comb, cell = comb[on], cell[on] if on.size else cell
+    if singles is not None:  # pooled single agents appended after the data rows
+        sa_ = singles["conc_a"].to_numpy(float)
+        sb_ = singles["conc_b"].to_numpy(float)
+        sy = singles["viability"].to_numpy(float)
+        off = len(y)
+        y = np.r_[y, sy]
+        ra = np.flatnonzero((sa_ > 0) & (sb_ == 0)) + off
+        rb = np.flatnonzero((sb_ > 0) & (sa_ == 0)) + off
+        ca, cb = np.r_[ca, sa_], np.r_[cb, sb_]
+    else:
+        ra = np.flatnonzero((ca > 0) & (cb == 0))
+        rb = np.flatnonzero((cb > 0) & (ca == 0))
+    return _Arrays(ra, ca[ra], rb, cb[rb], comb, cell, y, (len(lb), len(la)))
+
+
+def _grid_from(arr: _Arrays, y: np.ndarray) -> np.ndarray:
+    n = arr.shape[0] * arr.shape[1]
+    s = np.bincount(arr.cell, weights=y[arr.c_rows], minlength=n)
+    c = np.bincount(arr.cell, minlength=n)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        g = np.where(c > 0, s / np.maximum(c, 1), np.nan)
+    return g.reshape(arr.shape)
+
+
 def _single_values(
-    s: pd.DataFrame, levels: np.ndarray, how: str, start: FourPL | None = None
+    conc: np.ndarray, y: np.ndarray, levels: np.ndarray, how: str, start: FourPL | None = None
 ) -> tuple[np.ndarray, FourPL | None, str | None]:
     """Single-agent viability at ``levels`` (fitted or observed means)."""
-    if s.empty:
+    if conc.size == 0:
         raise TinctureDataError(
             "No single-agent wells for one of the drugs.",
             fix="Include rows with the other drug at concentration 0.",
         )
-    obs = s.groupby("conc")["viability"].mean()
     if how == "fitted":
-        h = fit_4pl(s["conc"].to_numpy(), s["viability"].to_numpy(), start=start)
+        h = fit_4pl(conc, y, start=start)
         if h.converged and np.isfinite(h.fit.top):
             return np.asarray(h.fit(levels), float), h.fit, None
-        note = "single-agent fit failed; observed means used"
+        note: str | None = "single-agent fit failed; observed means used"
     else:
         note = None
-    vals = obs.reindex(levels).to_numpy(float)
+    vals = np.array([y[conc == lv].mean() if (conc == lv).any() else np.nan for lv in levels])
     if np.isnan(vals).any():
         raise TinctureDataError(
             "Observed single-agent values are missing at some combination concentrations.",
@@ -231,12 +279,23 @@ def _zip_fit_row(
         r = 10.0 ** (n * (lxx - lm))
         return (base + e * r) / (1 + r)
 
+    def jac(p: np.ndarray) -> np.ndarray:
+        e, lm, n = p
+        with np.errstate(over="ignore", invalid="ignore"):
+            r = 10.0 ** (n * (lx - lm))
+            d = (1 + r) ** 2
+            g = r / d * np.log(10.0) * (e - base)
+            j = np.column_stack([r / (1 + r), -n * g, (lx - lm) * g])
+        return np.nan_to_num(j)
+
     lm0 = start.log10_ec50 if start is not None and np.isfinite(start.log10_ec50) else lx.mean()
     n0 = start.hill if start is not None and np.isfinite(start.hill) else 1.0
     lb = [min(base, 0.0) - 1e-6, lx.min() - 2, 0.1]
     ub = [1.5, lx.max() + 2, 10.0]
     p0 = np.clip([max(base, yy.max()), lm0, n0], np.array(lb) + 1e-9, np.array(ub) - 1e-9)
-    r = least_squares(lambda p: f(p, lx) - yy, p0, bounds=(lb, ub), loss="soft_l1", f_scale=0.1)
+    r = least_squares(
+        lambda p: f(p, lx) - yy, p0, jac=jac, bounds=(lb, ub), loss="soft_l1", f_scale=0.1
+    )
     return np.asarray(f(r.x, np.log10(x)), float)
 
 
@@ -250,14 +309,24 @@ def _point(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, FourPL | None, FourPL | None, list[str]]:
     """Observed, expected and excess grids for one data set. ``singles`` overrides the
     single-agent wells (pooled singles for per-replicate combination grids)."""
+    arr = _arrays(cm, data, singles)
+    return _point_arr(cm, arr, arr.y, model, single_agent, starts)
+
+
+def _point_arr(
+    cm: ComboMatrix,
+    arr: _Arrays,
+    y: np.ndarray,
+    model: str,
+    single_agent: str,
+    starts: tuple[FourPL | None, FourPL | None] = (None, None),
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, FourPL | None, FourPL | None, list[str]]:
     la, lb = cm.levels_a, cm.levels_b
-    src = data if singles is None else singles
-    sub = ComboMatrix(src, cm.drug_a, cm.drug_b) if src is not cm.data else cm
     how = "fitted" if model == "zip" else single_agent
-    va, fa, na = _single_values(sub.single("a"), la, how, starts[0])
-    vb, fb, nb_ = _single_values(sub.single("b"), lb, how, starts[1])
+    va, fa, na = _single_values(arr.sa_conc, y[arr.sa_rows], la, how, starts[0])
+    vb, fb, nb_ = _single_values(arr.sb_conc, y[arr.sb_rows], lb, how, starts[1])
     notes = [n for n in (na, nb_) if n]
-    obs = cm.grid(data)
+    obs = _grid_from(arr, y)
     VA, VB = np.meshgrid(va, vb)  # (nb, na)
     if model == "hsa":
         exp = np.minimum(VA, VB)
@@ -396,12 +465,11 @@ def synergy(
     if len(reps) < 2 and isinstance(noise_sd, float | int) and noise_sd > 0:
         kind = "noise_sd"
         boots = []
+        arr = _arrays(cm, cm.data)
         for _ in range(n_boot):
-            d = cm.data.assign(
-                viability=cm.data["viability"] + rng.normal(0, noise_sd, len(cm.data))
-            )
+            y = arr.y + rng.normal(0, noise_sd, len(arr.y))
             try:
-                boots.append(_point(cm, d, model, single_agent, (fa, fb))[2])
+                boots.append(_point_arr(cm, arr, y, model, single_agent, (fa, fb))[2])
             except TinctureDataError:
                 continue
         if len(boots) >= 20:
